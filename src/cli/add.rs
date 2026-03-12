@@ -2,6 +2,7 @@ use serde::Serialize;
 
 use crate::cli::output::{print_response, CliResponse};
 use crate::error::AppError;
+use crate::i18n::{get_message, Message};
 use crate::model::recurrence::Recurrence;
 use crate::model::task::{CreatedBy, Priority, Task};
 use crate::service::task_service::TaskService;
@@ -26,6 +27,7 @@ pub fn run(
     service: &TaskService,
     params: AddParams,
     format: &str,
+    locale: &str,
 ) -> Result<(), AppError> {
     let task = service.add_task(
         params.title,
@@ -40,7 +42,7 @@ pub fn run(
 
     let response = CliResponse::success_with_message(
         AddData { task },
-        "Task created".to_string(),
+        get_message(Message::TaskCreated, locale),
     );
     print_response(&response, format);
 

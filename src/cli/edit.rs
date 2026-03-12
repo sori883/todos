@@ -2,6 +2,7 @@ use serde::Serialize;
 
 use crate::cli::output::{print_response, CliResponse};
 use crate::error::AppError;
+use crate::i18n::{get_message, Message};
 use crate::model::recurrence::Recurrence;
 use crate::model::task::{Priority, Task};
 use crate::service::task_service::TaskService;
@@ -22,7 +23,12 @@ pub struct EditParams {
     pub recurrence: Option<Recurrence>,
 }
 
-pub fn run(service: &TaskService, params: EditParams, format: &str) -> Result<(), AppError> {
+pub fn run(
+    service: &TaskService,
+    params: EditParams,
+    format: &str,
+    locale: &str,
+) -> Result<(), AppError> {
     let task = service.edit_task(
         &params.id,
         params.title,
@@ -36,7 +42,7 @@ pub fn run(service: &TaskService, params: EditParams, format: &str) -> Result<()
 
     let data = EditData { task };
     let response = if format == "text" {
-        CliResponse::success_with_message(data, "Task updated".to_string())
+        CliResponse::success_with_message(data, get_message(Message::TaskUpdated, locale))
     } else {
         CliResponse::success(data)
     };

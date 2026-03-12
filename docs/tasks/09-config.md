@@ -132,9 +132,9 @@ fn settings_merge_global_and_local() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] `config --show` でビルトイン値を含む設定表示
-- [ ] `config --mode` / `--icons` で設定変更
-- [ ] `config --reset` でローカル設定削除
-- [ ] `extra_labels` が add の label バリデーションに反映
-- [ ] グローバル/ローカル設定のマージが正しく動作（ユニットテスト）
+- [x] E2E テストが全て通る
+- [x] `config --show` でビルトイン値を含む設定表示
+- [x] `config --mode` / `--icons` で設定変更
+- [x] `config --reset` でローカル設定削除
+- [x] `extra_labels` が add の label バリデーションに反映
+- [x] グローバル/ローカル設定のマージが正しく動作（ユニットテスト）

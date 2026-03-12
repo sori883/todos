@@ -163,10 +163,10 @@ fn status_cancelled_does_not_generate() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] `done` で `completed_at` が自動設定
-- [ ] `done` → 他ステータスで `completed_at` がクリア
-- [ ] 繰り返しタスク（daily, weekly, monthly, yearly, days_of_week）の自動生成
-- [ ] 自動生成タスクがフィールドを正しく継承
-- [ ] `cancelled` では繰り返しタスクを生成しない
-- [ ] `parent_id` は繰り返し生成時にコピーしない
+- [x] E2E テストが全て通る
+- [x] `done` で `completed_at` が自動設定
+- [x] `done` → 他ステータスで `completed_at` がクリア
+- [x] 繰り返しタスク（daily, weekly, monthly, yearly, days_of_week）の自動生成
+- [x] 自動生成タスクがフィールドを正しく継承
+- [x] `cancelled` では繰り返しタスクを生成しない
+- [x] `parent_id` は繰り返し生成時にコピーしない

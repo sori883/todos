@@ -89,7 +89,7 @@ fn binary_exists_and_runs() {
 
 ## 完了条件
 
-- [ ] `cargo build` が成功する
-- [ ] `cargo test` が成功する（binary_exists テスト通過）
-- [ ] 全モジュールの mod.rs が空で存在する
-- [ ] テストヘルパーが定義されている
+- [x] `cargo build` が成功する
+- [x] `cargo test` が成功する（binary_exists テスト通過）
+- [x] 全モジュールの mod.rs が空で存在する
+- [x] テストヘルパーが定義されている

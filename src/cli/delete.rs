@@ -3,6 +3,7 @@ use std::io::{self, BufRead, Write};
 
 use crate::cli::output::{print_response, CliResponse};
 use crate::error::AppError;
+use crate::i18n::{get_message, Message};
 use crate::model::task::Task;
 use crate::service::task_service::TaskService;
 
@@ -17,6 +18,7 @@ pub fn run(
     id: &str,
     yes: bool,
     format: &str,
+    locale: &str,
 ) -> Result<(), AppError> {
     // For JSON format, require --yes
     if format == "json" && !yes {
@@ -63,10 +65,14 @@ pub fn run(
     };
 
     if format == "text" {
-        let mut msg = format!("Deleted '{}'", result.task.title);
-        if result.deleted_subtasks > 0 {
-            msg.push_str(&format!(" and {} subtask(s)", result.deleted_subtasks));
-        }
+        let msg = if result.deleted_subtasks > 0 {
+            get_message(
+                Message::TaskDeletedWithSubtasks(result.deleted_subtasks),
+                locale,
+            )
+        } else {
+            get_message(Message::TaskDeleted, locale)
+        };
         let response = CliResponse::success_with_message(data, msg);
         print_response(&response, format);
     } else {

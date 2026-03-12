@@ -55,6 +55,11 @@ impl TaskService {
         Self { store, settings }
     }
 
+    /// Invalidate the store's in-memory cache so the next operation re-reads from disk.
+    pub fn invalidate_cache(&self) {
+        self.store.invalidate_cache();
+    }
+
     /// Add a new task with validation.
     #[allow(clippy::too_many_arguments)]
     pub fn add_task(

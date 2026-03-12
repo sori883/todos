@@ -87,8 +87,8 @@ fn init_json_output() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] `todos init` で `.todos/tasks.json` が作成される
-- [ ] `--force` なしで既存上書き拒否
-- [ ] `--format json` で JSON レスポンス
-- [ ] `--data-dir` でディレクトリ指定可能
+- [x] E2E テストが全て通る
+- [x] `todos init` で `.todos/tasks.json` が作成される
+- [x] `--force` なしで既存上書き拒否
+- [x] `--format json` で JSON レスポンス
+- [x] `--data-dir` でディレクトリ指定可能

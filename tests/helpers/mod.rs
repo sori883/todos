@@ -45,6 +45,11 @@ pub fn todos_json_stdin(data_dir: &Path, args: &[&str], stdin: &str) -> serde_js
     serde_json::from_slice(&output).unwrap()
 }
 
+/// init なしの todos コマンドを返す（--help など用）
+pub fn todos_cmd_no_init() -> Command {
+    Command::cargo_bin("todos").unwrap()
+}
+
 /// --format json --yes 付きで実行し、JSON パース結果を返す
 pub fn todos_json_yes(data_dir: &Path, args: &[&str]) -> serde_json::Value {
     let output = todos_cmd(data_dir)

@@ -44,6 +44,11 @@ impl JsonStore {
         Ok(())
     }
 
+    /// Invalidate the in-memory cache so the next operation re-reads from disk.
+    pub fn invalidate_cache(&self) {
+        *self.data.borrow_mut() = None;
+    }
+
     fn lock_path(&self) -> PathBuf {
         self.path.with_extension("json.lock")
     }

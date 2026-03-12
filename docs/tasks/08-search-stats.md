@@ -125,9 +125,9 @@ fn stats_with_filter() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] title/description の部分一致検索
-- [ ] 大文字小文字を区別しない検索
-- [ ] search + フィルタの組み合わせ
-- [ ] stats の全カテゴリ集計（status, priority, label, project, creator）
-- [ ] stats にフィルタ適用可能
+- [x] E2E テストが全て通る
+- [x] title/description の部分一致検索
+- [x] 大文字小文字を区別しない検索
+- [x] search + フィルタの組み合わせ
+- [x] stats の全カテゴリ集計（status, priority, label, project, creator）
+- [x] stats にフィルタ適用可能

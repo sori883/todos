@@ -10,6 +10,7 @@ use todos::model::recurrence::Recurrence;
 use todos::model::task::{CreatedBy, Priority, Status};
 use todos::store::json_store::JsonStore;
 use todos::service::task_service::TaskService;
+use todos::tui;
 
 #[derive(Parser)]
 #[command(name = "todos", about = "AI-human collaborative task manager")]
@@ -309,6 +310,13 @@ impl From<StatusArg> for Status {
     }
 }
 
+/// Load the locale from settings. Returns default "ja" if settings cannot be loaded.
+fn load_locale(data_dir: &std::path::Path) -> String {
+    Settings::load(data_dir)
+        .map(|s| s.locale)
+        .unwrap_or_else(|_| "ja".to_string())
+}
+
 fn main() {
     let cli_args = Cli::parse();
     let format = cli_args.format.to_string();
@@ -324,12 +332,18 @@ fn main() {
 fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
     match cli_args.command {
         None => {
-            println!("TUI is not implemented yet");
+            let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
+            let tasks_path = paths::tasks_json_path(&data_dir);
+            let store = JsonStore::new(tasks_path.clone());
+            let settings = Settings::load(&data_dir)?;
+            let service = TaskService::new(store, settings);
+            tui::run_tui(service, tasks_path)?;
             Ok(())
         }
         Some(Commands::Init { force }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            cli::init::run(&data_dir, force, format)?;
+            let locale = load_locale(&data_dir);
+            cli::init::run(&data_dir, force, format, &locale)?;
             Ok(())
         }
         Some(Commands::Add {
@@ -346,6 +360,7 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             let tasks_path = paths::tasks_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
             let settings = Settings::load(&data_dir)?;
+            let locale = settings.locale.clone();
             let service = TaskService::new(store, settings);
 
             let recurrence = Recurrence::parse(&recurrence)
@@ -362,7 +377,7 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
                 recurrence,
             };
 
-            cli::add::run(&service, params, format)?;
+            cli::add::run(&service, params, format, &locale)?;
             Ok(())
         }
         Some(Commands::Show { id }) => {
@@ -454,6 +469,7 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             let tasks_path = paths::tasks_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
             let settings = Settings::load(&data_dir)?;
+            let locale = settings.locale.clone();
             let service = TaskService::new(store, settings);
 
             let recurrence = match recurrence {
@@ -475,7 +491,7 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
                 recurrence,
             };
 
-            cli::edit::run(&service, params, format)?;
+            cli::edit::run(&service, params, format, &locale)?;
             Ok(())
         }
         Some(Commands::Status { id, status }) => {
@@ -483,9 +499,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             let tasks_path = paths::tasks_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
             let settings = Settings::load(&data_dir)?;
+            let locale = settings.locale.clone();
             let service = TaskService::new(store, settings);
 
-            cli::status::run(&service, &id, &status, format)?;
+            cli::status::run(&service, &id, &status, format, &locale)?;
             Ok(())
         }
         Some(Commands::Delete { id }) => {
@@ -493,9 +510,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             let tasks_path = paths::tasks_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
             let settings = Settings::load(&data_dir)?;
+            let locale = settings.locale.clone();
             let service = TaskService::new(store, settings);
 
-            cli::delete::run(&service, &id, cli_args.yes, format)?;
+            cli::delete::run(&service, &id, cli_args.yes, format, &locale)?;
             Ok(())
         }
         Some(Commands::Search {

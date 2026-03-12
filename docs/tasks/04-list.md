@@ -181,11 +181,11 @@ fn list_text_output_has_header() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] 全フィルタオプションが正しく動作する
-- [ ] ソートが正しく動作する（priority, created_at, updated_at, title）
-- [ ] ツリー表示で親の直後に子がインデント表示される
-- [ ] `--flat` でフラット表示に切り替わる
-- [ ] `--all` で done/cancelled を含む
-- [ ] `--limit` で件数制限
-- [ ] text 出力にヘッダー行がある
+- [x] E2E テストが全て通る
+- [x] 全フィルタオプションが正しく動作する
+- [x] ソートが正しく動作する（priority, created_at, updated_at, title）
+- [x] ツリー表示で親の直後に子がインデント表示される
+- [x] `--flat` でフラット表示に切り替わる
+- [x] `--all` で done/cancelled を含む
+- [x] `--limit` で件数制限
+- [x] text 出力にヘッダー行がある

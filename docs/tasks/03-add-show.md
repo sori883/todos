@@ -206,11 +206,11 @@ fn show_subtask_includes_parent_info() {
 
 ## 完了条件
 
-- [ ] E2E テストが全て通る
-- [ ] `todos add` でタスクが作成され `tasks.json` に永続化される
-- [ ] 全オプション（-d, -p, -c, -l, -P, --parent, --recurrence）が機能する
-- [ ] `todos show` で ID 前方一致でタスク詳細を表示
-- [ ] サブタスク作成時の2階層制限が機能する
-- [ ] サブタスクが親の project を継承する
-- [ ] 不正な label でエラー
-- [ ] ファイルロック・アトミック書き込みが実装されている
+- [x] E2E テストが全て通る
+- [x] `todos add` でタスクが作成され `tasks.json` に永続化される
+- [x] 全オプション（-d, -p, -c, -l, -P, --parent, --recurrence）が機能する
+- [x] `todos show` で ID 前方一致でタスク詳細を表示
+- [x] サブタスク作成時の2階層制限が機能する
+- [x] サブタスクが親の project を継承する
+- [x] 不正な label でエラー
+- [x] ファイルロック・アトミック書き込みが実装されている

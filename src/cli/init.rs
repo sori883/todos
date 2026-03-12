@@ -3,9 +3,10 @@ use std::path::Path;
 
 use crate::cli::output::{print_error, print_response, CliResponse};
 use crate::error::AppError;
+use crate::i18n::{get_message, Message};
 use crate::store::schema::TaskData;
 
-pub fn run(data_dir: &Path, force: bool, format: &str) -> Result<(), AppError> {
+pub fn run(data_dir: &Path, force: bool, format: &str, locale: &str) -> Result<(), AppError> {
     let tasks_path = data_dir.join("tasks.json");
 
     // Check if already initialized
@@ -23,11 +24,12 @@ pub fn run(data_dir: &Path, force: bool, format: &str) -> Result<(), AppError> {
     let content = serde_json::to_string_pretty(&data)?;
     fs::write(&tasks_path, content)?;
 
+    let path_str = data_dir.to_string_lossy().to_string();
     let response = CliResponse::<serde_json::Value>::success_with_message(
         serde_json::json!({
-            "path": data_dir.to_string_lossy()
+            "path": path_str
         }),
-        format!("Initialized todos in {}", data_dir.display()),
+        get_message(Message::Initialized(path_str), locale),
     );
     print_response(&response, format);
 
