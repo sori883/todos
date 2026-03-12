@@ -56,3 +56,8 @@ pub fn resolve_data_dir(explicit: Option<&Path>) -> PathBuf {
 pub fn tasks_json_path(data_dir: &Path) -> PathBuf {
     data_dir.join("tasks.json")
 }
+
+/// Return the archive.json path within the data directory.
+pub fn archive_json_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("archive.json")
+}

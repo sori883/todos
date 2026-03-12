@@ -23,10 +23,11 @@ fn batch_mixed_operations() {
     let dir = setup();
     let t = todos_json(dir.path(), &["add", "既存タスク"]);
     let id = t["data"]["task"]["id"].as_str().unwrap();
+    // edit before status change to done (done archives the task)
     let input = format!(r#"[
         {{"action": "add", "title": "新規", "created_by": "ai"}},
-        {{"action": "status", "id": "{}", "status": "done"}},
-        {{"action": "edit", "id": "{}", "priority": "high"}}
+        {{"action": "edit", "id": "{}", "priority": "high"}},
+        {{"action": "status", "id": "{}", "status": "done"}}
     ]"#, &id[..8], &id[..8]);
     let json = todos_json_stdin(dir.path(), &["batch"], &input);
     assert_eq!(json["data"]["summary"]["succeeded"], 3);

@@ -2,7 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Tabs};
+use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 
 use crate::model::task::{CreatedBy, Priority, Status};
 use crate::tui::app::App;
@@ -13,18 +13,26 @@ use super::task_detail;
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
-    // Layout: tabs at top, main content, status bar at bottom
+    // Guard: show message if terminal is too small
+    if area.width < super::MIN_WIDTH || area.height < super::MIN_HEIGHT {
+        let msg = Paragraph::new("Terminal too small")
+            .style(Style::default().fg(Color::Red));
+        frame.render_widget(msg, area);
+        return;
+    }
+
+    // Layout: project indicator at top, main content, status bar at bottom
     let outer_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // tabs
+            Constraint::Length(1),  // project indicator
             Constraint::Min(1),    // main content
             Constraint::Length(1), // status bar
         ])
         .split(area);
 
-    // Render project tabs
-    render_tabs(frame, app, outer_layout[0]);
+    // Render project indicator (single line)
+    render_project_indicator(frame, app, outer_layout[0]);
 
     // Main content: list + optional detail panel
     let content_area = outer_layout[1];
@@ -48,26 +56,35 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_status_bar(frame, app, outer_layout[2]);
 }
 
-fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tab_titles: Vec<Line> = app
-        .project_tabs()
-        .iter()
-        .map(|tab| {
-            let title = match tab {
-                None => "All".to_string(),
-                Some(name) => name.clone(),
-            };
-            Line::from(title)
-        })
-        .collect();
+fn render_project_indicator(frame: &mut Frame, app: &App, area: Rect) {
+    let current_name = match app.project_tabs().get(app.current_tab()) {
+        Some(None) | None => "All",
+        Some(Some(name)) => name,
+    };
+    let tab_count = app.project_tabs().len();
 
-    let tabs = Tabs::new(tab_titles)
-        .block(Block::default().borders(Borders::ALL).title("Projects"))
-        .select(app.current_tab())
-        .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+    let line = Line::from(vec![
+        Span::styled(
+            " \u{25C0} ",
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled(
+            current_name,
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            " \u{25B6} ",
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled(
+            format!("({}/{})", app.current_tab() + 1, tab_count),
+            Style::default().fg(Color::DarkGray),
+        ),
+    ]);
 
-    frame.render_widget(tabs, area);
+    let bar = Paragraph::new(line)
+        .style(Style::default().bg(Color::Black));
+    frame.render_widget(bar, area);
 }
 
 fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
@@ -173,7 +190,7 @@ fn render_detail_panel(frame: &mut Frame, app: &App, area: Rect) {
 fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
     let msg = app.status_message();
     let help = if msg.is_empty() {
-        "j/k:move  h/l:tab  n:new  e:edit  s:sub  Space:toggle  x:cancel  d:del  c:done  q:quit"
+        "j/k:move  h/l:project  n:new  e:edit  s:sub  Space:status  x:cancel  d:del  c:show done  q:quit"
     } else {
         msg
     };

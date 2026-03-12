@@ -1,4 +1,5 @@
 pub mod add;
+pub mod archive;
 pub mod batch;
 pub mod config;
 pub mod delete;

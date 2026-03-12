@@ -83,17 +83,6 @@ fn esc_cancels_form() {
 }
 
 #[test]
-fn recurrence_notification_on_done() {
-    let dir = setup();
-    todos_cmd(dir.path()).args(["add", "繰り返し", "--recurrence", "daily"]).assert().success();
-    let mut app = create_test_app_with_data(dir.path());
-    // todo -> in_progress -> done
-    app.handle_key(key(' '));
-    app.handle_key(key(' '));
-    assert!(app.status_message().contains("繰り返し"));
-}
-
-#[test]
 fn file_change_triggers_reload() {
     let dir = setup();
     todos_cmd(dir.path()).args(["add", "初期"]).assert().success();
@@ -111,11 +100,13 @@ fn file_change_triggers_reload() {
 
 ### 1. tui/pages/task_form.rs
 
-- タスク作成フォーム
-  - テキスト入力: title, description
-  - セレクタ: priority, label, project, parent, recurrence
+- タスク作成フォーム（ターミナル面積の 90% を使用）
+  - フィールド構成（6 フィールド）: 0=title, 1=priority, 2=label, 3=project, 4=parent, 5=content
+  - テキスト入力: title, content
+  - セレクタ: priority, label, project, parent
   - parent セレクタ: ルートタスクのみ表示
-  - parent 選択時は recurrence を never に固定
+  - content フィールドは Unicode 対応の行折り返し
+  - ブロックカーソルレンダリング
 - タスク編集フォーム（既存値をプリフィル）
 - サブタスク作成（parent がプリセット）
 - Enter で保存、Esc でキャンセル
@@ -130,7 +121,7 @@ fn file_change_triggers_reload() {
 
 - Space トグル処理（TaskService.change_status() 経由）
 - x キーで cancelled に変更
-- ステータスバーメッセージ（繰り返し生成通知等）
+- ステータスバーメッセージ（アーカイブ通知等）
 - mtime 変更検知 → 再読み込み
 
 ### 4. tui/event.rs 更新
@@ -146,6 +137,6 @@ fn file_change_triggers_reload() {
 - [x] `Space` でステータストグル（todo → in_progress → done → todo）
 - [x] `x` で cancelled に変更
 - [x] `d` で削除確認ダイアログ
-- [x] 繰り返しタスク done 時にステータスバー通知
+- [x] Done/Cancelled 時にアーカイブ通知
 - [x] 外部ファイル変更時に自動再読み込み
 - [x] Enter で保存、Esc でキャンセル

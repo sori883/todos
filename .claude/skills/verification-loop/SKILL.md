@@ -1,6 +1,6 @@
 # 検証ループスキル
 
-Claude Codeセッション用の包括的な検証システム。
+Rust プロジェクト向けの包括的な検証システム。
 
 ## 使用タイミング
 
@@ -14,62 +14,47 @@ Claude Codeセッション用の包括的な検証システム。
 
 ### フェーズ1: ビルド検証
 ```bash
-# プロジェクトがビルドできるか確認
-npm run build 2>&1 | tail -20
-# または
-pnpm build 2>&1 | tail -20
+cargo build 2>&1 | tail -20
 ```
 
 ビルドが失敗した場合、続行前にSTOPして修正する。
 
-### フェーズ2: 型チェック
+### フェーズ2: Clippy（lint）チェック
 ```bash
-# TypeScriptプロジェクト
-npx tsc --noEmit 2>&1 | head -30
-
-# Pythonプロジェクト
-pyright . 2>&1 | head -30
+cargo clippy --all-targets --all-features -- -D warnings 2>&1 | head -30
 ```
 
-全ての型エラーを報告する。続行前にクリティカルなものを修正する。
+全ての clippy 警告を報告する。続行前にクリティカルなものを修正する。
 
-### フェーズ3: Lintチェック
+### フェーズ3: フォーマットチェック
 ```bash
-# JavaScript/TypeScript
-npm run lint 2>&1 | head -30
-
-# Python
-ruff check . 2>&1 | head -30
+cargo fmt --all -- --check 2>&1 | head -30
 ```
 
 ### フェーズ4: テストスイート
 ```bash
-# カバレッジ付きでテストを実行
-npm run test -- --coverage 2>&1 | tail -50
-
-# カバレッジ閾値を確認
-# 目標: 最低80%
+cargo test 2>&1 | tail -50
 ```
 
 レポート:
 - 総テスト数: X
 - パス: X
 - フェイル: X
-- カバレッジ: X%
 
 ### フェーズ5: セキュリティスキャン
 ```bash
 # シークレットのチェック
-grep -rn "sk-" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
-grep -rn "api_key" --include="*.ts" --include="*.js" . 2>/dev/null | head -10
+grep -rn "sk-\|api_key\|password\s*=" --include="*.rs" src/ 2>/dev/null | head -10
 
-# console.logのチェック
-grep -rn "console.log" --include="*.ts" --include="*.tsx" src/ 2>/dev/null | head -10
+# unsafe ブロックのチェック
+grep -rn "unsafe" --include="*.rs" src/ 2>/dev/null | head -10
+
+# 本番コードの .unwrap() チェック（テスト除外）
+grep -rn "\.unwrap()" --include="*.rs" src/ 2>/dev/null | head -10
 ```
 
 ### フェーズ6: 差分レビュー
 ```bash
-# 変更内容を表示
 git diff --stat
 git diff HEAD~1 --name-only
 ```
@@ -88,9 +73,9 @@ git diff HEAD~1 --name-only
 ==================
 
 ビルド:     [PASS/FAIL]
-型:         [PASS/FAIL] (Xエラー)
-Lint:       [PASS/FAIL] (X警告)
-テスト:     [PASS/FAIL] (X/Yパス、Z%カバレッジ)
+Clippy:     [PASS/FAIL] (X件の警告)
+Format:     [PASS/FAIL]
+テスト:     [PASS/FAIL] (X/Yパス)
 セキュリティ: [PASS/FAIL] (X件の問題)
 差分:       [Xファイル変更]
 
@@ -108,7 +93,7 @@ Lint:       [PASS/FAIL] (X警告)
 ```markdown
 メンタルチェックポイントを設定:
 - 各関数の完了後
-- コンポーネントの完成後
+- モジュールの完成後
 - 次のタスクに移る前
 
 実行: /verify

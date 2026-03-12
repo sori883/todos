@@ -3,7 +3,6 @@ use serde::Serialize;
 use crate::cli::output::{print_response, CliResponse};
 use crate::error::AppError;
 use crate::i18n::{get_message, Message};
-use crate::model::recurrence::Recurrence;
 use crate::model::task::{CreatedBy, Priority, Task};
 use crate::service::task_service::TaskService;
 
@@ -14,13 +13,12 @@ struct AddData {
 
 pub struct AddParams {
     pub title: String,
-    pub description: Option<String>,
+    pub content: Option<String>,
     pub priority: Priority,
     pub created_by: CreatedBy,
     pub label: Option<String>,
     pub project: Option<String>,
     pub parent: Option<String>,
-    pub recurrence: Recurrence,
 }
 
 pub fn run(
@@ -31,13 +29,12 @@ pub fn run(
 ) -> Result<(), AppError> {
     let task = service.add_task(
         params.title,
-        params.description,
+        params.content,
         params.priority,
         params.created_by,
         params.label,
         params.project,
         params.parent,
-        params.recurrence,
     )?;
 
     let response = CliResponse::success_with_message(

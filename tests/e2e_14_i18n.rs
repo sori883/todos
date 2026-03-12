@@ -116,7 +116,15 @@ fn add_unicode_emoji_title() {
 #[test]
 fn add_long_title() {
     let dir = setup();
-    let long_title = "a".repeat(1000);
-    let json = todos_json(dir.path(), &["add", &long_title]);
-    assert_eq!(json["data"]["task"]["title"].as_str().unwrap().len(), 1000);
+    // 200 chars: max allowed
+    let ok_title = "a".repeat(200);
+    let json = todos_json(dir.path(), &["add", &ok_title]);
+    assert_eq!(json["data"]["task"]["title"].as_str().unwrap().len(), 200);
+
+    // 201 chars: rejected
+    let too_long = "a".repeat(201);
+    todos_cmd(dir.path())
+        .args(["add", &too_long])
+        .assert()
+        .failure();
 }

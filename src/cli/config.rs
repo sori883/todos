@@ -8,6 +8,9 @@ pub struct ConfigParams {
     pub show: bool,
     pub mode: Option<String>,
     pub icons: Option<String>,
+    pub max_title_length: Option<usize>,
+    pub max_content_length: Option<usize>,
+    pub max_project_length: Option<usize>,
     pub reset: bool,
     pub yes: bool,
 }
@@ -33,8 +36,12 @@ pub fn run(
         return Ok(());
     }
 
-    // Apply mode/icons changes if specified
-    let has_changes = params.mode.is_some() || params.icons.is_some();
+    // Apply changes if specified
+    let has_changes = params.mode.is_some()
+        || params.icons.is_some()
+        || params.max_title_length.is_some()
+        || params.max_content_length.is_some()
+        || params.max_project_length.is_some();
     if has_changes {
         let mut settings = Settings::load(data_dir)?;
 
@@ -62,6 +69,31 @@ pub fn run(
                     )));
                 }
             }
+        }
+
+        if let Some(v) = params.max_title_length {
+            if v == 0 {
+                return Err(AppError::InvalidInput(
+                    "max-title-length must be greater than 0".to_string(),
+                ));
+            }
+            settings.max_title_length = v;
+        }
+        if let Some(v) = params.max_content_length {
+            if v == 0 {
+                return Err(AppError::InvalidInput(
+                    "max-content-length must be greater than 0".to_string(),
+                ));
+            }
+            settings.max_content_length = v;
+        }
+        if let Some(v) = params.max_project_length {
+            if v == 0 {
+                return Err(AppError::InvalidInput(
+                    "max-project-length must be greater than 0".to_string(),
+                ));
+            }
+            settings.max_project_length = v;
         }
 
         settings.save(data_dir)?;

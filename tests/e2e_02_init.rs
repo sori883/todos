@@ -16,7 +16,7 @@ fn init_creates_valid_json() {
     todos_cmd(dir.path()).args(["init"]).assert().success();
     let content = std::fs::read_to_string(dir.path().join(".todos/tasks.json")).unwrap();
     let data: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert_eq!(data["version"], 1);
+    assert_eq!(data["version"], 2);
     assert_eq!(data["tasks"], serde_json::json!([]));
 }
 

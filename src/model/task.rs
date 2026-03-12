@@ -2,8 +2,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::recurrence::Recurrence;
-
 pub type TaskId = Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -11,7 +9,7 @@ pub struct Task {
     pub id: TaskId,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub content: Option<String>,
     pub status: Status,
     pub priority: Priority,
     pub created_by: CreatedBy,
@@ -21,8 +19,6 @@ pub struct Task {
     pub project: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<TaskId>,
-    #[serde(default)]
-    pub recurrence: Recurrence,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]

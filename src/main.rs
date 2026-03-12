@@ -6,14 +6,68 @@ use todos::cli;
 use todos::config::paths;
 use todos::config::settings::Settings;
 use todos::model::filter::TaskFilter;
-use todos::model::recurrence::Recurrence;
 use todos::model::task::{CreatedBy, Priority, Status};
 use todos::store::json_store::JsonStore;
 use todos::service::task_service::TaskService;
 use todos::tui;
 
+const COMMANDS_REFERENCE: &str = "\
+\x1b[1;4mCommands Reference:\x1b[0m
+
+  \x1b[1minit\x1b[0m [--force]
+      プロジェクトを初期化（--force で上書き）
+
+  \x1b[1madd\x1b[0m <TITLE> [-d <content>] [-p <priority>] [-c <created-by>]
+                  [-l <label>] [-P <project>] [--parent <id>]
+      タスクを追加。priority: none|low|medium|high|critical
+
+  \x1b[1mshow\x1b[0m <ID>
+      タスクの詳細を表示（ID は前方一致）
+
+  \x1b[1mlist\x1b[0m (ls) [-s <status>] [-p <priority>] [-c <created-by>]
+                [-l <label>] [-P <project>] [-q <query>]
+                [--sort <field>] [--reverse] [--limit <n>] [--all] [--flat]
+      タスク一覧を表示。sort: priority|created_at|updated_at|title
+
+  \x1b[1medit\x1b[0m <ID> [-T <title>] [-d <content>] [-p <priority>]
+                [-l <label>] [-P <project>] [--parent <id|none>]
+      タスクを編集
+
+  \x1b[1mstatus\x1b[0m <ID> <STATUS>
+      ステータス変更。status: todo|in_progress|done|cancelled
+
+  \x1b[1mdelete\x1b[0m (rm) <ID>
+      タスクを削除
+
+  \x1b[1msearch\x1b[0m <QUERY> [-s <status>] [-p <priority>] [-c <created-by>]
+                   [-l <label>] [-P <project>]
+      タスクを検索
+
+  \x1b[1mstats\x1b[0m [-s <status>] [-p <priority>] [-c <created-by>]
+                [-l <label>] [-P <project>]
+      統計を表示
+
+  \x1b[1mconfig\x1b[0m [--show] [--mode <vi|default>] [--icons <nerd|chars>]
+                 [--max-title-length <n>] [--max-content-length <n>]
+                 [--max-project-length <n>] [--reset]
+      設定を管理
+
+  \x1b[1marchive\x1b[0m [-s <status>] [-p <priority>] [-c <created-by>]
+                  [-l <label>] [-P <project>] [-q <query>]
+                  [--sort <field>] [--reverse] [--limit <n>]
+      アーカイブ一覧を表示
+
+  \x1b[1mbatch\x1b[0m
+      一括操作（stdin から JSON）
+
+\x1b[2m各コマンドの詳細: todos <command> --help\x1b[0m";
+
 #[derive(Parser)]
-#[command(name = "todos", about = "AI-human collaborative task manager")]
+#[command(
+    name = "todos",
+    about = "AI-human collaborative task manager",
+    after_long_help = COMMANDS_REFERENCE
+)]
 struct Cli {
     /// データディレクトリのパスを指定
     #[arg(long = "data-dir", global = true)]
@@ -59,9 +113,9 @@ enum Commands {
         /// タスクのタイトル
         title: String,
 
-        /// 説明
-        #[arg(short, long)]
-        description: Option<String>,
+        /// 内容
+        #[arg(short = 'd', long)]
+        content: Option<String>,
 
         /// 優先度: none, low, medium, high, critical
         #[arg(short, long, default_value = "none")]
@@ -82,10 +136,6 @@ enum Commands {
         /// 親タスク ID（前方一致）
         #[arg(long)]
         parent: Option<String>,
-
-        /// 繰り返し: never, daily, weekly, monthly, yearly, "mon,wed,fri"
-        #[arg(long, default_value = "never")]
-        recurrence: String,
     },
     /// タスクの詳細を表示
     Show {
@@ -148,9 +198,9 @@ enum Commands {
         #[arg(short = 'T', long)]
         title: Option<String>,
 
-        /// 新しい説明
+        /// 新しい内容
         #[arg(short = 'd', long)]
-        description: Option<String>,
+        content: Option<String>,
 
         /// 新しい優先度
         #[arg(short = 'p', long)]
@@ -167,10 +217,6 @@ enum Commands {
         /// 新しい親タスク ID（"none" で解除）
         #[arg(long)]
         parent: Option<String>,
-
-        /// 新しい繰り返し
-        #[arg(long)]
-        recurrence: Option<String>,
     },
     /// タスクのステータスを変更
     Status {
@@ -246,9 +292,59 @@ enum Commands {
         #[arg(long)]
         icons: Option<String>,
 
+        /// タイトルの最大文字数
+        #[arg(long)]
+        max_title_length: Option<usize>,
+
+        /// コンテンツの最大文字数
+        #[arg(long)]
+        max_content_length: Option<usize>,
+
+        /// プロジェクト名の最大文字数
+        #[arg(long)]
+        max_project_length: Option<usize>,
+
         /// 設定をリセット
         #[arg(long)]
         reset: bool,
+    },
+    /// アーカイブ一覧を表示
+    Archive {
+        /// ステータスで絞り込み: done, cancelled
+        #[arg(short = 's', long)]
+        status: Option<StatusArg>,
+
+        /// 優先度で絞り込み
+        #[arg(short = 'p', long)]
+        priority: Option<PriorityArg>,
+
+        /// 作成者で絞り込み: human, ai
+        #[arg(short = 'c', long)]
+        created_by: Option<CreatedByArg>,
+
+        /// ラベルで絞り込み
+        #[arg(short = 'l', long)]
+        label: Option<String>,
+
+        /// プロジェクトで絞り込み
+        #[arg(short = 'P', long)]
+        project: Option<String>,
+
+        /// 検索クエリ
+        #[arg(short = 'q', long)]
+        query: Option<String>,
+
+        /// ソートフィールド: priority, created_at, updated_at, title
+        #[arg(long, default_value = "created_at")]
+        sort: String,
+
+        /// ソート順を反転
+        #[arg(long)]
+        reverse: bool,
+
+        /// 表示件数制限
+        #[arg(long)]
+        limit: Option<usize>,
     },
     /// 一括操作（stdin から JSON）
     Batch,
@@ -334,9 +430,11 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         None => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path.clone());
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
             tui::run_tui(service, tasks_path)?;
             Ok(())
         }
@@ -348,33 +446,30 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Add {
             title,
-            description,
+            content,
             priority,
             created_by,
             label,
             project,
             parent,
-            recurrence,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
-            let service = TaskService::new(store, settings);
-
-            let recurrence = Recurrence::parse(&recurrence)
-                .map_err(todos::error::AppError::InvalidInput)?;
+            let service = TaskService::new(store, settings, archive_store);
 
             let params = cli::add::AddParams {
                 title,
-                description,
+                content,
                 priority: priority.into(),
                 created_by: created_by.into(),
                 label,
                 project,
                 parent,
-                recurrence,
             };
 
             cli::add::run(&service, params, format, &locale)?;
@@ -383,9 +478,11 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Show { id }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             cli::show::run(&service, &id, format)?;
             Ok(())
@@ -405,9 +502,11 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             let status_filter: Option<Status> = status.map(|s| s.into());
             let has_status_filter = status_filter.is_some();
@@ -458,37 +557,29 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Edit {
             id,
             title,
-            description,
+            content,
             priority,
             label,
             project,
             parent,
-            recurrence,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
-            let service = TaskService::new(store, settings);
-
-            let recurrence = match recurrence {
-                Some(r) => Some(
-                    Recurrence::parse(&r)
-                        .map_err(todos::error::AppError::InvalidInput)?,
-                ),
-                None => None,
-            };
+            let service = TaskService::new(store, settings, archive_store);
 
             let params = cli::edit::EditParams {
                 id,
                 title,
-                description,
+                content,
                 priority: priority.map(|p| p.into()),
                 label,
                 project,
                 parent,
-                recurrence,
             };
 
             cli::edit::run(&service, params, format, &locale)?;
@@ -497,10 +588,12 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Status { id, status }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             cli::status::run(&service, &id, &status, format, &locale)?;
             Ok(())
@@ -508,10 +601,12 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Delete { id }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             cli::delete::run(&service, &id, cli_args.yes, format, &locale)?;
             Ok(())
@@ -526,9 +621,11 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             let status_filter: Option<Status> = status.map(|s| s.into());
             let has_status_filter = status_filter.is_some();
@@ -572,9 +669,11 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             let filter = TaskFilter {
                 status: status.map(|s| s.into()),
@@ -594,6 +693,9 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             show,
             mode,
             icons,
+            max_title_length,
+            max_content_length,
+            max_project_length,
             reset,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
@@ -602,6 +704,9 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
                 show,
                 mode,
                 icons,
+                max_title_length,
+                max_content_length,
+                max_project_length,
                 reset,
                 yes: cli_args.yes,
             };
@@ -609,12 +714,55 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             cli::config::run(&data_dir, params, format)?;
             Ok(())
         }
+        Some(Commands::Archive {
+            status,
+            priority,
+            created_by,
+            label,
+            project,
+            query,
+            sort,
+            reverse,
+            limit,
+        }) => {
+            let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
+            let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
+            let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
+            let settings = Settings::load(&data_dir)?;
+            let service = TaskService::new(store, settings, archive_store);
+
+            let filter = TaskFilter {
+                status: status.map(|s| s.into()),
+                priority: priority.map(|p| p.into()),
+                created_by: created_by.map(|c| c.into()),
+                label,
+                project,
+                parent_id: None,
+                include_done: true,
+                include_cancelled: true,
+            };
+
+            let params = cli::archive::ArchiveParams {
+                filter,
+                query,
+                sort,
+                reverse,
+                limit,
+            };
+
+            cli::archive::run(&service, params, format)?;
+            Ok(())
+        }
         Some(Commands::Batch) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
             let tasks_path = paths::tasks_json_path(&data_dir);
+            let archive_path = paths::archive_json_path(&data_dir);
             let store = JsonStore::new(tasks_path);
+            let archive_store = JsonStore::new(archive_path);
             let settings = Settings::load(&data_dir)?;
-            let service = TaskService::new(store, settings);
+            let service = TaskService::new(store, settings, archive_store);
 
             cli::batch::run(&service, format)?;
             Ok(())

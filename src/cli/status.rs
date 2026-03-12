@@ -9,7 +9,6 @@ use crate::service::task_service::TaskService;
 #[derive(Debug, Serialize)]
 struct StatusData {
     task: Task,
-    generated_task: Option<Task>,
 }
 
 pub fn run(
@@ -23,7 +22,6 @@ pub fn run(
 
     let data = StatusData {
         task: result.task.clone(),
-        generated_task: result.generated_task.clone(),
     };
 
     if format == "text" {
@@ -31,12 +29,16 @@ pub fn run(
             Message::StatusChanged(result.task.status.to_string()),
             locale,
         );
-        if let Some(ref generated) = result.generated_task {
+        if result.archived {
             msg.push('\n');
-            msg.push_str(&get_message(
-                Message::RecurringTaskGenerated(generated.title.clone()),
-                locale,
-            ));
+            if result.archived_subtasks > 0 {
+                msg.push_str(&get_message(
+                    Message::TaskArchivedWithSubtasks(result.archived_subtasks),
+                    locale,
+                ));
+            } else {
+                msg.push_str(&get_message(Message::TaskArchived, locale));
+            }
         }
         let response = CliResponse::success_with_message(data, msg);
         print_response(&response, format);

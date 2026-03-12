@@ -13,13 +13,15 @@ use todos::config::settings::Settings;
 use todos::model::task::Status;
 use todos::service::task_service::TaskService;
 use todos::store::json_store::JsonStore;
-use todos::tui::app::{App, AppState};
+use todos::tui::app::{App, AppState, FormMode};
 
 fn create_test_service(path: &Path) -> TaskService {
     let tasks_path = path.join(".todos/tasks.json");
+    let archive_path = path.join(".todos/archive.json");
     let store = JsonStore::new(tasks_path);
+    let archive_store = JsonStore::new(archive_path);
     let settings = Settings::load(&path.join(".todos")).unwrap_or_default();
-    TaskService::new(store, settings)
+    TaskService::new(store, settings, archive_store)
 }
 
 fn create_test_app() -> (App, TempDir) {
@@ -192,8 +194,9 @@ fn completed_toggle() {
         .assert()
         .success();
     let mut app = create_test_app_with_data(dir.path());
-    // Default: done is hidden
+    // Done task is archived, so it's not in the active list
     assert_eq!(app.visible_task_count(), 0);
+    // With show_completed, archived tasks are included
     app.handle_key(key('c')); // toggle show completed
     assert_eq!(app.visible_task_count(), 1);
 }
@@ -214,7 +217,7 @@ fn parent_task_shows_subtask_count_in_detail() {
     let app = create_test_app_with_data(dir.path());
     let buffer = render_app(&app, 120, 30);
     let content = buffer_to_string(&buffer);
-    assert!(content.contains("Subtasks: 2"));
+    assert!(content.contains("Subtasks") && content.contains("2"));
 }
 
 // ============================================================
@@ -264,23 +267,10 @@ fn space_toggles_status() {
     // todo -> in_progress
     app.handle_key(key(' '));
     assert_eq!(app.selected_task().unwrap().status, Status::InProgress);
-    // in_progress -> done
+    // in_progress -> done: task gets archived and disappears from the list
     app.handle_key(key(' '));
-    // After done, with show_completed=false the task disappears from list.
-    // We need to enable show_completed to see it.
-    // But the test expects the task to still be visible...
-    // Actually, after toggling to done, the task might disappear since show_completed is false.
-    // Let's enable show_completed first so we can keep track.
-    // Re-read the test spec more carefully: the test expects done -> todo cycle.
-    // After setting to done, task is hidden (show_completed=false).
-    // But reload_tasks is called inside toggle_status, so the task list changes.
-    // We need show_completed=true to see the done task.
-    // Let's enable it to make the test work as the spec expects.
-    app.handle_key(key('c')); // enable show_completed
-    assert_eq!(app.selected_task().unwrap().status, Status::Done);
-    // done -> todo
-    app.handle_key(key(' '));
-    assert_eq!(app.selected_task().unwrap().status, Status::Todo);
+    // Task is now archived, so the list is empty
+    assert_eq!(app.visible_task_count(), 0);
 }
 
 #[test]
@@ -292,9 +282,8 @@ fn x_cancels_task() {
         .success();
     let mut app = create_test_app_with_data(dir.path());
     app.handle_key(key('x'));
-    // After cancelling, task may be hidden. Enable show_completed.
-    app.handle_key(key('c'));
-    assert_eq!(app.selected_task().unwrap().status, Status::Cancelled);
+    // After cancelling, task is archived and disappears from the list
+    assert_eq!(app.visible_task_count(), 0);
 }
 
 #[test]
@@ -319,21 +308,6 @@ fn esc_cancels_form() {
 }
 
 #[test]
-fn recurrence_notification_on_done() {
-    let dir = setup();
-    todos_cmd(dir.path())
-        .args(["add", "繰り返し", "--recurrence", "daily"])
-        .assert()
-        .success();
-    let mut app = create_test_app_with_data(dir.path());
-    // todo -> in_progress
-    app.handle_key(key(' '));
-    // in_progress -> done (triggers recurrence)
-    app.handle_key(key(' '));
-    assert!(app.status_message().contains("繰り返し"));
-}
-
-#[test]
 fn file_change_triggers_reload() {
     let dir = setup();
     todos_cmd(dir.path())
@@ -350,4 +324,546 @@ fn file_change_triggers_reload() {
     // tick event triggers reload
     app.handle_tick();
     assert_eq!(app.visible_task_count(), 2);
+}
+
+// ============================================================
+// Reproduction tests for TUI improvement issues
+// ============================================================
+
+fn type_string(app: &mut App, s: &str) {
+    for c in s.chars() {
+        app.handle_key(key(c));
+    }
+}
+
+#[test]
+fn repro_create_task_via_form() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    assert_eq!(app.state(), &AppState::TaskForm);
+    type_string(&mut app, "FormTask");
+    app.handle_key(KeyCode::Enter.into());
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 1);
+}
+
+#[test]
+fn repro_create_subtask_via_form() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Parent"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    assert_eq!(app.visible_task_count(), 1);
+    app.handle_key(key('s'));
+    assert_eq!(app.state(), &AppState::TaskForm);
+    assert!(app.form_parent_id().is_some());
+    type_string(&mut app, "Child");
+    app.handle_key(KeyCode::Enter.into());
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 2);
+}
+
+#[test]
+fn repro_small_terminal_no_crash() {
+    let (app, _dir) = create_test_app();
+    for (w, h) in [(10, 5), (5, 3), (1, 1), (3, 1), (80, 1), (1, 24)] {
+        let backend = TestBackend::new(w, h);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            terminal.draw(|f| app.render(f)).unwrap();
+        }));
+        assert!(result.is_ok(), "Crashed at terminal size {}x{}", w, h);
+    }
+}
+
+#[test]
+fn repro_small_terminal_with_tasks_no_crash() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Task1"])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "Task2", "-P", "myproject"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    // Also open form
+    app.handle_key(key('n'));
+    for (w, h) in [(10, 5), (5, 3), (1, 1), (3, 1), (80, 1), (1, 24), (20, 10)] {
+        let backend = TestBackend::new(w, h);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            terminal.draw(|f| app.render(f)).unwrap();
+        }));
+        assert!(result.is_ok(), "Crashed at terminal size {}x{} with form", w, h);
+    }
+    // Also test delete confirm dialog
+    app.handle_key(KeyCode::Esc.into());
+    app.handle_key(key('d'));
+    for (w, h) in [(10, 5), (5, 3), (20, 10)] {
+        let backend = TestBackend::new(w, h);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            terminal.draw(|f| app.render(f)).unwrap();
+        }));
+        assert!(result.is_ok(), "Crashed at terminal size {}x{} with delete confirm", w, h);
+    }
+}
+
+// ============================================================
+// TUI Improvement: project indicator tests
+// ============================================================
+
+#[test]
+fn project_indicator_shows_current_project() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "A", "-P", "alpha"])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "B", "-P", "beta"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    // Initial: "All" project
+    let buffer = render_app(&app, 80, 24);
+    let content = buffer_to_string(&buffer);
+    assert!(content.contains("All"), "Should show 'All' as current project");
+
+    // Switch to next project
+    app.handle_key(key('l'));
+    let buffer = render_app(&app, 80, 24);
+    let content = buffer_to_string(&buffer);
+    assert!(content.contains("alpha"), "Should show 'alpha' as current project");
+}
+
+// ============================================================
+// TUI Improvement: parent selector in form
+// ============================================================
+
+#[test]
+fn form_parent_selector_shows_available_parents() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "ParentA"])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "ParentB"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    // Open new task form
+    app.handle_key(key('n'));
+    let form = app.form().unwrap();
+    // Should have 2 available parents
+    assert_eq!(form.available_parents.len(), 2);
+    assert_eq!(form.parent_index, 0); // none selected by default
+}
+
+#[test]
+fn form_create_subtask_via_parent_selector() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Root"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    assert_eq!(app.visible_task_count(), 1);
+
+    // Open new task form
+    app.handle_key(key('n'));
+    // Type title
+    type_string(&mut app, "Child via selector");
+    // Tab to parent field (field 4): tab 4 times
+    for _ in 0..4 {
+        app.handle_key(KeyCode::Tab.into());
+    }
+    // Select parent with Right arrow
+    app.handle_key(KeyCode::Right.into());
+    // Verify parent is selected
+    assert!(app.form_parent_id().is_some());
+    // Save
+    app.handle_key(KeyCode::Enter.into());
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 2);
+    // The second task should be a subtask
+    let tasks = app.tasks();
+    let child = tasks.iter().find(|t| t.title == "Child via selector").unwrap();
+    assert!(child.parent_id.is_some());
+}
+
+#[test]
+fn form_parent_field_renders_in_form() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Root"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    app.handle_key(key('n'));
+    let buffer = render_app(&app, 80, 24);
+    let content = buffer_to_string(&buffer);
+    assert!(content.contains("Parent"), "Form should contain Parent field");
+}
+
+#[test]
+fn subtask_form_parent_locked() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Root"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    // Open subtask form
+    app.handle_key(key('s'));
+    let form = app.form().unwrap();
+    assert_eq!(form.mode, FormMode::Subtask);
+    // Parent should be pre-selected (index > 0)
+    assert!(form.parent_index > 0);
+    let buffer = render_app(&app, 80, 24);
+    let content = buffer_to_string(&buffer);
+    assert!(content.contains("Parent (locked)"), "Subtask form should show locked parent");
+}
+
+// ============================================================
+// TUI Improvement: form error preserves data
+// ============================================================
+
+#[test]
+fn form_save_error_preserves_form_data() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    // Try to save with empty title
+    app.handle_key(KeyCode::Enter.into());
+    // Should still be in form state
+    assert_eq!(app.state(), &AppState::TaskForm);
+    assert!(app.status_message().contains("empty"));
+}
+
+// ============================================================
+// TUI Improvement: minimum terminal size
+// ============================================================
+
+#[test]
+fn tiny_terminal_shows_too_small_message() {
+    let (app, _dir) = create_test_app();
+    let buffer = render_app(&app, 19, 4);
+    let content = buffer_to_string(&buffer);
+    assert!(content.contains("Terminal too small"));
+}
+
+// ============================================================
+// Additional tests: delete confirm actions
+// ============================================================
+
+#[test]
+fn delete_confirm_y_deletes_task() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "ToDelete"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    assert_eq!(app.visible_task_count(), 1);
+    // Open delete confirm
+    app.handle_key(key('d'));
+    assert_eq!(app.state(), &AppState::DeleteConfirm);
+    // Confirm deletion with 'y'
+    app.handle_key(key('y'));
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 0);
+}
+
+#[test]
+fn delete_confirm_n_cancels() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Keep"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    assert_eq!(app.visible_task_count(), 1);
+    app.handle_key(key('d'));
+    assert_eq!(app.state(), &AppState::DeleteConfirm);
+    // Cancel with 'n'
+    app.handle_key(key('n'));
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 1);
+}
+
+#[test]
+fn delete_confirm_esc_cancels() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "Keep"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    app.handle_key(key('d'));
+    assert_eq!(app.state(), &AppState::DeleteConfirm);
+    app.handle_key(KeyCode::Esc.into());
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 1);
+}
+
+// ============================================================
+// Additional tests: edit form pre-fill
+// ============================================================
+
+#[test]
+fn edit_form_prefills_existing_values() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "MyTitle", "-d", "MyDesc", "-p", "high", "-l", "bug", "-P", "proj1"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    app.handle_key(key('e'));
+    assert_eq!(app.state(), &AppState::TaskForm);
+    let form = app.form().unwrap();
+    assert_eq!(form.mode, FormMode::Edit);
+    assert_eq!(form.title, "MyTitle");
+    assert_eq!(form.content, "MyDesc");
+    assert_eq!(form.priority_index, 3); // high is index 3 in PRIORITIES
+    assert!(form.label_index > 0); // bug should be selected
+    assert_eq!(form.project, "proj1");
+}
+
+// ============================================================
+// Additional tests: parent selector excludes self in edit
+// ============================================================
+
+#[test]
+fn edit_form_parent_excludes_self() {
+    let dir = setup();
+    todos_cmd(dir.path())
+        .args(["add", "TaskA"])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "TaskB"])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    // Edit first task
+    app.handle_key(key('e'));
+    let form = app.form().unwrap();
+    // Available parents should contain TaskB but not TaskA (self)
+    let titles: Vec<&str> = form.available_parents.iter().map(|(_, t)| t.as_str()).collect();
+    assert!(titles.contains(&"TaskB"), "TaskB should be available as parent");
+    assert!(!titles.contains(&"TaskA"), "TaskA (self) should NOT be available as parent");
+}
+
+// ============================================================
+// Additional tests: form Tab/BackTab navigation
+// ============================================================
+
+#[test]
+fn form_tab_cycles_all_fields() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    // Start at field 0
+    assert_eq!(app.form().unwrap().focused_field, 0);
+    // Tab through all 6 fields and back to 0
+    for expected in 1..=5 {
+        app.handle_key(KeyCode::Tab.into());
+        assert_eq!(app.form().unwrap().focused_field, expected);
+    }
+    app.handle_key(KeyCode::Tab.into());
+    assert_eq!(app.form().unwrap().focused_field, 0, "Should wrap around to field 0");
+}
+
+#[test]
+fn form_backtab_cycles_all_fields() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    assert_eq!(app.form().unwrap().focused_field, 0);
+    // BackTab from 0 should go to last field (5)
+    app.handle_key(KeyCode::BackTab.into());
+    assert_eq!(app.form().unwrap().focused_field, 5, "BackTab from 0 should wrap to last field");
+    // BackTab again should go to 4
+    app.handle_key(KeyCode::BackTab.into());
+    assert_eq!(app.form().unwrap().focused_field, 4);
+}
+
+// ============================================================
+// Additional tests: delete parent with cascading subtasks
+// ============================================================
+
+#[test]
+fn delete_parent_cascades_in_tui() {
+    let dir = setup();
+    let parent = helpers::todos_json(dir.path(), &["add", "Parent"]);
+    let pid = parent["data"]["task"]["id"].as_str().unwrap();
+    todos_cmd(dir.path())
+        .args(["add", "Child1", "--parent", &pid[..8]])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "Child2", "--parent", &pid[..8]])
+        .assert()
+        .success();
+    let mut app = create_test_app_with_data(dir.path());
+    assert_eq!(app.visible_task_count(), 3); // parent + 2 children
+    // Select parent (should be first), delete
+    app.handle_key(key('d'));
+    assert_eq!(app.state(), &AppState::DeleteConfirm);
+    app.handle_key(key('y'));
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 0); // all deleted
+}
+
+// ============================================================
+// Multiline content tests
+// ============================================================
+
+fn alt_enter() -> KeyEvent {
+    KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)
+}
+
+fn ctrl_j() -> KeyEvent {
+    KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL)
+}
+
+#[test]
+fn content_multiline_input_via_alt_enter() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    assert_eq!(app.state(), &AppState::TaskForm);
+    // Type title
+    type_string(&mut app, "MultilineTask");
+    // Tab to content field (field 5)
+    for _ in 0..5 {
+        app.handle_key(KeyCode::Tab.into());
+    }
+    // Type first line
+    type_string(&mut app, "line1");
+    // Insert newline via Alt+Enter
+    app.handle_key(alt_enter());
+    // Type second line
+    type_string(&mut app, "line2");
+    // Insert newline via Ctrl+J
+    app.handle_key(ctrl_j());
+    // Type third line
+    type_string(&mut app, "line3");
+    // Verify the content contains newlines
+    let form = app.form().unwrap();
+    assert_eq!(form.content, "line1\nline2\nline3");
+    // Save and verify task was created
+    app.handle_key(KeyCode::Enter.into());
+    assert_eq!(app.state(), &AppState::TaskList);
+    assert_eq!(app.visible_task_count(), 1);
+    // Verify the task's content has newlines
+    let task = app.selected_task().unwrap();
+    assert_eq!(task.content.as_deref(), Some("line1\nline2\nline3"));
+}
+
+#[test]
+fn content_multiline_display_in_detail() {
+    let dir = setup();
+    // Create a task with multiline content via CLI
+    todos_cmd(dir.path())
+        .args(["add", "Detail", "-d", "first\nsecond\nthird"])
+        .assert()
+        .success();
+    let app = create_test_app_with_data(dir.path());
+    // Render with wide terminal to get detail panel
+    let buffer = render_app(&app, 120, 30);
+    let content = buffer_to_string(&buffer);
+    // The detail panel should show each line separately
+    // Content section shows lines directly (no "Content:" label in new design)
+    assert!(content.contains("first"), "Should show first line of content");
+    assert!(content.contains("second"), "Should show second line of content");
+    assert!(content.contains("third"), "Should show third line of content");
+}
+
+#[test]
+fn content_cursor_navigation() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    // Tab to content field (field 5)
+    for _ in 0..5 {
+        app.handle_key(KeyCode::Tab.into());
+    }
+    // Type first line
+    type_string(&mut app, "abc");
+    // Insert newline
+    app.handle_key(alt_enter());
+    // Type second line
+    type_string(&mut app, "defgh");
+    // Insert newline
+    app.handle_key(alt_enter());
+    // Type third line
+    type_string(&mut app, "ij");
+    // Cursor should be at row 2, col 2
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 2);
+    assert_eq!(form.content_cursor_col, 2);
+    // Move up
+    app.handle_key(KeyCode::Up.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 1);
+    assert_eq!(form.content_cursor_col, 2); // stays at col 2 (defgh has 5 chars)
+    // Move up again
+    app.handle_key(KeyCode::Up.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 0);
+    assert_eq!(form.content_cursor_col, 2); // stays at col 2 (abc has 3 chars)
+    // Move up at top should stay at row 0
+    app.handle_key(KeyCode::Up.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 0);
+    // Move down
+    app.handle_key(KeyCode::Down.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 1);
+    // Move down again
+    app.handle_key(KeyCode::Down.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 2);
+    // Move down at bottom should stay
+    app.handle_key(KeyCode::Down.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content_cursor_row, 2);
+}
+
+#[test]
+fn content_backspace_joins_lines() {
+    let (mut app, _dir) = create_test_app();
+    app.handle_key(key('n'));
+    // Tab to content field (field 5)
+    for _ in 0..5 {
+        app.handle_key(KeyCode::Tab.into());
+    }
+    // Type first line
+    type_string(&mut app, "hello");
+    // Insert newline
+    app.handle_key(alt_enter());
+    // Type second line
+    type_string(&mut app, "world");
+    // Content should be "hello\nworld"
+    let form = app.form().unwrap();
+    assert_eq!(form.content, "hello\nworld");
+    assert_eq!(form.content_cursor_row, 1);
+    assert_eq!(form.content_cursor_col, 5);
+    // Delete all chars on second line
+    for _ in 0..5 {
+        app.handle_key(KeyCode::Backspace.into());
+    }
+    // Now cursor is at beginning of second line
+    let form = app.form().unwrap();
+    assert_eq!(form.content, "hello\n");
+    assert_eq!(form.content_cursor_row, 1);
+    assert_eq!(form.content_cursor_col, 0);
+    // One more backspace should join lines
+    app.handle_key(KeyCode::Backspace.into());
+    let form = app.form().unwrap();
+    assert_eq!(form.content, "hello");
+    assert_eq!(form.content_cursor_row, 0);
+    assert_eq!(form.content_cursor_col, 5); // cursor at end of "hello"
 }

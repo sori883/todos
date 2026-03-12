@@ -8,8 +8,11 @@ pub enum Message {
     TaskDeleted,
     TaskDeletedWithSubtasks(usize),
     StatusChanged(String),
-    RecurringTaskGenerated(String),
     Initialized(String),
+    TaskArchived,
+    TaskArchivedWithSubtasks(usize),
+    TaskRestored,
+    TaskRestoredWithSubtasks(usize),
 }
 
 /// Get a localized message string.

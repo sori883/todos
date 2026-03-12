@@ -7,7 +7,10 @@ pub fn get(msg: Message) -> String {
         Message::TaskDeleted => "Task deleted".to_string(),
         Message::TaskDeletedWithSubtasks(n) => format!("Task deleted with {n} subtask(s)"),
         Message::StatusChanged(s) => format!("Status changed to {s}"),
-        Message::RecurringTaskGenerated(title) => format!("Recurring task generated: {title}"),
         Message::Initialized(path) => format!("Initialized todos in {path}"),
+        Message::TaskArchived => "Task archived".to_string(),
+        Message::TaskArchivedWithSubtasks(n) => format!("Task archived with {n} subtask(s)"),
+        Message::TaskRestored => "Task restored".to_string(),
+        Message::TaskRestoredWithSubtasks(n) => format!("Task restored with {n} subtask(s)"),
     }
 }

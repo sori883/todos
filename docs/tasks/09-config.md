@@ -120,6 +120,10 @@ fn settings_merge_global_and_local() {
 - `--show`: 現在の設定を表示（ビルトイン値含む）
 - `--reset`: ローカル設定削除 / グローバルリセット
 - `--mode`, `--icons`: 設定ファイルに書き込み
+- `--icons <style>`: アイコンスタイル (nerd/chars)
+- `--max-title-length <N>`: タイトル最大文字数 (default: 200)
+- `--max-content-length <N>`: コンテンツ最大文字数 (default: 10,000)
+- `--max-project-length <N>`: プロジェクト名最大文字数 (default: 100)
 
 ### 3. config/theme.rs（型定義のみ）
 

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::task::Task;
 
-pub const CURRENT_VERSION: u32 = 1;
+pub const CURRENT_VERSION: u32 = 2;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskData {

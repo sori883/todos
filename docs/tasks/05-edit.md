@@ -104,7 +104,7 @@ fn edit_not_found() {
 
 ### 2. cli/edit.rs
 
-- clap オプション定義（-T, -d, -p, -l, -P, --parent, --recurrence）
+- clap オプション定義（-T, -d, -p, -l, -P, --parent）
 - オプションなしエラーのチェック
 - text/json 出力
 

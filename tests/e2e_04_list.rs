@@ -131,11 +131,13 @@ fn list_all_includes_done() {
     let t = todos_json(dir.path(), &["add", "タスク"]);
     let id = t["data"]["task"]["id"].as_str().unwrap();
     todos_cmd(dir.path()).args(["status", &id[..8], "done"]).assert().success();
-    // デフォルト: done は非表示
+    // Done タスクはアーカイブされるので list には表示されない
     let json = todos_json(dir.path(), &["list"]);
     assert_eq!(json["data"]["count"], 0);
-    // --all で表示
     let json = todos_json(dir.path(), &["list", "--all"]);
+    assert_eq!(json["data"]["count"], 0);
+    // archive コマンドで表示される
+    let json = todos_json(dir.path(), &["archive"]);
     assert_eq!(json["data"]["count"], 1);
 }
 

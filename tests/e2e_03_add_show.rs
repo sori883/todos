@@ -94,17 +94,6 @@ fn add_subtask_of_subtask_fails() {
         .failure();
 }
 
-#[test]
-fn add_subtask_with_recurrence_fails() {
-    let dir = setup();
-    let parent = todos_json(dir.path(), &["add", "親"]);
-    let pid = parent["data"]["task"]["id"].as_str().unwrap();
-    todos_cmd(dir.path())
-        .args(["add", "子", "--parent", &pid[..8], "--recurrence", "daily"])
-        .assert()
-        .failure();
-}
-
 // === show command ===
 
 #[test]

@@ -88,16 +88,6 @@ fn add_subtask_of_subtask_fails() {
         .args(["add", "孫", "--parent", &cid[..8]])
         .assert().failure();
 }
-
-#[test]
-fn add_subtask_with_recurrence_fails() {
-    let dir = setup();
-    let parent = todos_json(dir.path(), &["add", "親"]);
-    let pid = parent["data"]["task"]["id"].as_str().unwrap();
-    todos_cmd(dir.path())
-        .args(["add", "子", "--parent", &pid[..8], "--recurrence", "daily"])
-        .assert().failure();
-}
 ```
 
 ### show コマンド
@@ -161,25 +151,19 @@ fn show_subtask_includes_parent_info() {
 - `Task`, `TaskId`, `Status`, `Priority`, `CreatedBy` 構造体/enum（全フィールド）
 - `parent_id: Option<TaskId>` を含む
 
-### 2. model/recurrence.rs
-
-- `Recurrence`, `DayOfWeek` enum
-- CLI 短縮形パース（`"mon,wed,fri"` → `DaysOfWeek`）
-- `chrono::Weekday` との変換
-
-### 3. model/filter.rs
+### 2. model/filter.rs
 
 - `TaskFilter`, `SortField`
 
-### 4. model/stats.rs
+### 3. model/stats.rs
 
 - `Stats` 構造体
 
-### 5. store/repository.rs
+### 4. store/repository.rs
 
 - `TaskRepository` トレイト定義
 
-### 6. store/json_store.rs
+### 5. store/json_store.rs
 
 - `JsonStore` 構造体（`RefCell<Option<TaskData>>`）
 - `TaskRepository` 実装
@@ -187,20 +171,20 @@ fn show_subtask_includes_parent_info() {
 - ファイルロック（`fs2`）
 - `get_children()` 実装
 
-### 7. service/task_service.rs
+### 6. service/task_service.rs
 
 - `TaskService` 構造体
 - `add_task()` -- label バリデーション、親子チェック（2階層制限）、project 継承
 - `get_task()` -- ID 前方一致解決
 - `get_subtasks()`
 
-### 8. cli/add.rs, cli/show.rs
+### 7. cli/add.rs, cli/show.rs
 
 - clap オプション定義
 - TaskService 呼び出し
 - text/json 出力
 
-### 9. error.rs
+### 8. error.rs
 
 - 残りの AppError バリアント追加
 
@@ -208,7 +192,7 @@ fn show_subtask_includes_parent_info() {
 
 - [x] E2E テストが全て通る
 - [x] `todos add` でタスクが作成され `tasks.json` に永続化される
-- [x] 全オプション（-d, -p, -c, -l, -P, --parent, --recurrence）が機能する
+- [x] 全オプション（-d, -p, -c, -l, -P, --parent）が機能する
 - [x] `todos show` で ID 前方一致でタスク詳細を表示
 - [x] サブタスク作成時の2階層制限が機能する
 - [x] サブタスクが親の project を継承する

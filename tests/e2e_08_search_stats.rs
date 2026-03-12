@@ -13,7 +13,7 @@ fn search_by_title() {
 }
 
 #[test]
-fn search_by_description() {
+fn search_by_content() {
     let dir = setup();
     todos_cmd(dir.path()).args(["add", "タスク1", "-d", "認証機能の実装"]).assert().success();
     todos_cmd(dir.path()).args(["add", "タスク2", "-d", "テスト追加"]).assert().success();

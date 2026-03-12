@@ -45,6 +45,12 @@ struct PartialSettings {
     pub extra_labels: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_projects: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_title_length: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_content_length: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_project_length: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -67,6 +73,9 @@ pub struct Settings {
     pub extra_labels: Vec<String>,
     pub extra_projects: Vec<String>,
     pub builtin_labels: Vec<String>,
+    pub max_title_length: usize,
+    pub max_content_length: usize,
+    pub max_project_length: usize,
 }
 
 impl Default for Settings {
@@ -78,6 +87,9 @@ impl Default for Settings {
             extra_labels: Vec::new(),
             extra_projects: Vec::new(),
             builtin_labels: Self::default_builtin_labels(),
+            max_title_length: 200,
+            max_content_length: 10_000,
+            max_project_length: 100,
         }
     }
 }
@@ -137,6 +149,9 @@ impl Settings {
             }),
             extra_labels: self.extra_labels.clone(),
             extra_projects: self.extra_projects.clone(),
+            max_title_length: Some(self.max_title_length),
+            max_content_length: Some(self.max_content_length),
+            max_project_length: Some(self.max_project_length),
         };
 
         let content = serde_json::to_string_pretty(&partial)
@@ -185,6 +200,15 @@ impl Settings {
                     self.extra_projects.push(project.clone());
                 }
             }
+        }
+        if let Some(v) = partial.max_title_length {
+            self.max_title_length = v;
+        }
+        if let Some(v) = partial.max_content_length {
+            self.max_content_length = v;
+        }
+        if let Some(v) = partial.max_project_length {
+            self.max_project_length = v;
         }
     }
 }

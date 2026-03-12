@@ -1,5 +1,4 @@
 use ratatui::Frame;
-use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
@@ -10,10 +9,15 @@ use crate::model::task::Task;
 pub fn render(frame: &mut Frame, task: &Task, subtask_count: usize) {
     let area = frame.area();
 
+    // Guard: skip rendering if terminal is too small for the dialog
+    if area.width < super::MIN_WIDTH || area.height < super::MIN_HEIGHT {
+        return;
+    }
+
     let dialog_width = 50u16.min(area.width.saturating_sub(4));
     let dialog_height = if subtask_count > 0 { 7 } else { 5 };
     let dialog_height = dialog_height.min(area.height.saturating_sub(2));
-    let dialog_area = centered_rect(dialog_width, dialog_height, area);
+    let dialog_area = super::centered_rect(dialog_width, dialog_height, area);
 
     frame.render_widget(Clear, dialog_area);
 
@@ -58,8 +62,3 @@ pub fn render(frame: &mut Frame, task: &Task, subtask_count: usize) {
     frame.render_widget(paragraph, inner);
 }
 
-fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
-    let x = area.x + (area.width.saturating_sub(width)) / 2;
-    let y = area.y + (area.height.saturating_sub(height)) / 2;
-    Rect::new(x, y, width, height)
-}

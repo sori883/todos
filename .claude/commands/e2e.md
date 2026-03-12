@@ -1,363 +1,204 @@
 ---
-description: Playwrightを使用してE2Eテストを生成・実行する。テストジャーニーの作成、テスト実行、スクリーンショット/動画/トレースのキャプチャ、アーティファクトのアップロード。
+description: assert_cmd + predicates を使用して Rust CLI の E2E テストを生成・実行する。コマンド実行、出力検証、ファイル状態確認を含む。
 ---
 
 # E2Eコマンド
 
-このコマンドは**e2e-runner**エージェントを呼び出し、Playwrightを使用したエンドツーエンドテストの生成、保守、実行を行う。
+このコマンドは Rust CLI プロジェクト向けの E2E テストを生成・実行する。
 
 ## このコマンドの機能
 
-1. **テストジャーニーの生成** - ユーザーフロー用のPlaywrightテストを作成
-2. **E2Eテストの実行** - 複数ブラウザでテストを実行
-3. **アーティファクトのキャプチャ** - 失敗時のスクリーンショット、動画、トレース
-4. **結果のアップロード** - HTMLレポートとJUnit XML
-5. **不安定なテストの特定** - 不安定なテストを隔離
+1. **テストシナリオの生成** - CLI コマンドの E2E テストを作成
+2. **E2Eテストの実行** - `cargo test --test e2e_*` でテストを実行
+3. **出力検証** - CLI の stdout/stderr/終了コードを検証
+4. **JSON出力のパース** - `--format json` の出力を構造的に検証
 
 ## 使用タイミング
 
 以下の場合に `/e2e` を使用:
-- クリティカルなユーザージャーニーのテスト（ログイン、取引、決済）
-- マルチステップフローのエンドツーエンド検証
-- UIインタラクションとナビゲーションのテスト
-- フロントエンドとバックエンドの統合検証
-- 本番デプロイメントの準備
+- CLI コマンドの完全なワークフローテスト
+- コマンド間の連携テスト（add → list → show → edit → delete）
+- エラーケースの検証（不正な入力、存在しないリソース）
+- JSON 出力フォーマットの検証
 
 ## 動作の仕組み
 
-e2e-runnerエージェントが以下を実行:
-
 1. **ユーザーフローを分析** しテストシナリオを特定
-2. **Playwrightテストを生成** Page Object Modelパターンを使用
-3. **テストを実行** 複数ブラウザで（Chrome、Firefox、Safari）
-4. **失敗をキャプチャ** スクリーンショット、動画、トレース付き
-5. **レポートを生成** 結果とアーティファクト付き
-6. **不安定なテストを特定** し修正を推奨
+2. **テストコードを生成** `assert_cmd` + `predicates` + `tempfile` を使用
+3. **テストを実行** `cargo test --test <test_file>`
+4. **結果を報告** パス/フェイル数とエラー詳細
 
 ## 使用例
 
 ```
-ユーザー: /e2e マーケット検索と閲覧フローをテスト
+ユーザー: /e2e タスクの追加から削除までのフローをテスト
 
-エージェント（e2e-runner）:
-# E2Eテスト生成: マーケット検索と閲覧フロー
+# E2Eテスト生成: タスクライフサイクル
 
-## テストシナリオの特定
+## テストシナリオ
 
-**ユーザージャーニー:** マーケット検索 → 結果表示 → マーケットクリック → 詳細表示
-
-**テストカバレッジ:**
-1. マーケットページに移動
-2. セマンティック検索を実行
-3. 検索結果を検証
-4. 最初の結果をクリック
-5. マーケット詳細ページの読み込みを検証
-6. チャートのレンダリングを検証
+**ユーザーフロー:** タスク追加 → 一覧確認 → 詳細表示 → 編集 → ステータス変更 → 削除
 
 ## 生成されたテストコード
 
-```typescript
-// tests/e2e/markets/search-and-view.spec.ts
-import { test, expect } from '@playwright/test'
-import { MarketsPage } from '../../pages/MarketsPage'
-import { MarketDetailsPage } from '../../pages/MarketDetailsPage'
+```rust
+// tests/e2e_lifecycle.rs
+use assert_cmd::Command;
+use predicates::prelude::*;
+use tempfile::TempDir;
 
-test.describe('マーケット検索と閲覧フロー', () => {
-  test('ユーザーがマーケットを検索して詳細を表示できる', async ({ page }) => {
-    // 1. マーケットページに移動
-    const marketsPage = new MarketsPage(page)
-    await marketsPage.goto()
+fn cmd(dir: &TempDir) -> Command {
+    let mut cmd = Command::cargo_bin("todos").unwrap();
+    cmd.env("TODOS_DIR", dir.path());
+    cmd
+}
 
-    // ページ読み込みを検証
-    await expect(page).toHaveTitle(/Markets/)
-    await expect(page.locator('h1')).toContainText('Markets')
+#[test]
+fn task_full_lifecycle() {
+    let dir = TempDir::new().unwrap();
 
-    // 2. セマンティック検索を実行
-    await marketsPage.searchMarkets('election')
+    // 1. タスクを追加
+    cmd(&dir)
+        .args(["add", "--title", "E2Eテスト", "--priority", "high"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Created"));
 
-    // APIレスポンスを待機
-    await page.waitForResponse(resp =>
-      resp.url().includes('/api/markets/search') && resp.status() === 200
-    )
+    // 2. 一覧に表示される
+    cmd(&dir)
+        .args(["list", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("E2Eテスト"));
 
-    // 3. 検索結果を検証
-    const marketCards = marketsPage.marketCards
-    await expect(marketCards.first()).toBeVisible()
-    const resultCount = await marketCards.count()
-    expect(resultCount).toBeGreaterThan(0)
+    // 3. 詳細表示
+    let output = cmd(&dir)
+        .args(["list", "--format", "json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let id = json["data"][0]["id"].as_str().unwrap();
+    let prefix = &id[..8];
 
-    // 検索結果のスクリーンショット
-    await page.screenshot({ path: 'artifacts/search-results.png' })
+    cmd(&dir)
+        .args(["show", prefix])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("E2Eテスト"));
 
-    // 4. 最初の結果をクリック
-    const firstMarketTitle = await marketCards.first().textContent()
-    await marketCards.first().click()
+    // 4. 編集
+    cmd(&dir)
+        .args(["edit", prefix, "--title", "更新済みタスク"])
+        .assert()
+        .success();
 
-    // 5. マーケット詳細ページの読み込みを検証
-    await expect(page).toHaveURL(/\/markets\/[a-z0-9-]+/)
+    // 5. ステータス変更
+    cmd(&dir)
+        .args(["status", prefix, "done"])
+        .assert()
+        .success();
 
-    const detailsPage = new MarketDetailsPage(page)
-    await expect(detailsPage.marketName).toBeVisible()
-    await expect(detailsPage.marketDescription).toBeVisible()
+    // 6. 削除
+    cmd(&dir)
+        .args(["delete", prefix, "--yes"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Deleted"));
+}
 
-    // 6. チャートのレンダリングを検証
-    await expect(detailsPage.priceChart).toBeVisible()
+#[test]
+fn invalid_command_shows_error() {
+    let dir = TempDir::new().unwrap();
 
-    // マーケット名が一致することを検証
-    const detailsTitle = await detailsPage.marketName.textContent()
-    expect(detailsTitle?.toLowerCase()).toContain(
-      firstMarketTitle?.toLowerCase().substring(0, 20) || ''
-    )
-
-    // マーケット詳細のスクリーンショット
-    await page.screenshot({ path: 'artifacts/market-details.png' })
-  })
-
-  test('結果なしの検索で空の状態を表示する', async ({ page }) => {
-    const marketsPage = new MarketsPage(page)
-    await marketsPage.goto()
-
-    // 存在しないマーケットを検索
-    await marketsPage.searchMarkets('xyznonexistentmarket123456')
-
-    // 空の状態を検証
-    await expect(page.locator('[data-testid="no-results"]')).toBeVisible()
-    await expect(page.locator('[data-testid="no-results"]')).toContainText(
-      /no.*results|no.*markets/i
-    )
-
-    const marketCount = await marketsPage.marketCards.count()
-    expect(marketCount).toBe(0)
-  })
-
-  test('検索をクリアして全マーケットを再表示できる', async ({ page }) => {
-    const marketsPage = new MarketsPage(page)
-    await marketsPage.goto()
-
-    // 初期マーケット数
-    const initialCount = await marketsPage.marketCards.count()
-
-    // 検索を実行
-    await marketsPage.searchMarkets('trump')
-    await page.waitForLoadState('networkidle')
-
-    // フィルタされた結果を検証
-    const filteredCount = await marketsPage.marketCards.count()
-    expect(filteredCount).toBeLessThan(initialCount)
-
-    // 検索をクリア
-    await marketsPage.searchInput.clear()
-    await page.waitForLoadState('networkidle')
-
-    // 全マーケットが再表示されることを検証
-    const finalCount = await marketsPage.marketCards.count()
-    expect(finalCount).toBe(initialCount)
-  })
-})
+    cmd(&dir)
+        .args(["show", "nonexistent"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not found").or(predicate::str::contains("error")));
+}
 ```
 
-## テストの実行
+## テスト実行
 
 ```bash
-# 生成されたテストを実行
-npx playwright test tests/e2e/markets/search-and-view.spec.ts
+cargo test --test e2e_lifecycle
 
-Running 3 tests using 3 workers
+running 2 tests
+test task_full_lifecycle ... ok
+test invalid_command_shows_error ... ok
 
-  ✓  [chromium] › search-and-view.spec.ts:5:3 › ユーザーがマーケットを検索して詳細を表示できる (4.2s)
-  ✓  [chromium] › search-and-view.spec.ts:52:3 › 結果なしの検索で空の状態を表示する (1.8s)
-  ✓  [chromium] › search-and-view.spec.ts:67:3 › 検索をクリアして全マーケットを再表示できる (2.9s)
-
-  3 passed (9.1s)
-
-生成されたアーティファクト:
-- artifacts/search-results.png
-- artifacts/market-details.png
-- playwright-report/index.html
+2 tests passed
+```
 ```
 
-## テストレポート
+## テスト構成
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║                    E2Eテスト結果                              ║
-╠══════════════════════════════════════════════════════════════╣
-║ ステータス:     ✅ 全テストパス                                ║
-║ 合計:      3テスト                                            ║
-║ パス:     3 (100%)                                           ║
-║ フェイル:     0                                               ║
-║ 不安定:      0                                               ║
-║ 所要時間:   9.1s                                             ║
-╚══════════════════════════════════════════════════════════════╝
-
-アーティファクト:
-📸 スクリーンショット: 2ファイル
-📹 動画: 0ファイル（失敗時のみ）
-🔍 トレース: 0ファイル（失敗時のみ）
-📊 HTMLレポート: playwright-report/index.html
-
-レポートを表示: npx playwright show-report
+tests/
+├── e2e_01_init.rs        # 初期化テスト
+├── e2e_02_config.rs      # 設定テスト
+├── e2e_03_add_show.rs    # 追加・表示テスト
+├── e2e_04_list.rs        # 一覧テスト
+├── e2e_05_edit.rs        # 編集テスト
+├── e2e_06_status.rs      # ステータス変更テスト
+├── e2e_07_delete.rs      # 削除テスト
+├── e2e_08_search.rs      # 検索テスト
+├── e2e_09_archive.rs     # アーカイブテスト
+├── e2e_10_batch.rs       # バッチテスト
+└── tui_tests.rs          # TUI テスト
 ```
 
-✅ E2Eテストスイートがci/CD統合の準備完了！
+## テストパターン
+
+### 基本パターン: コマンド実行と出力検証
+```rust
+cmd(&dir)
+    .args(["command", "arg1", "--flag", "value"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("期待される出力"));
 ```
 
-## テストアーティファクト
-
-テスト実行時に以下のアーティファクトがキャプチャされる:
-
-**全テスト共通:**
-- タイムラインと結果を含むHTMLレポート
-- CI統合用のJUnit XML
-
-**失敗時のみ:**
-- 失敗状態のスクリーンショット
-- テストの動画記録
-- デバッグ用トレースファイル（ステップごとのリプレイ）
-- ネットワークログ
-- コンソールログ
-
-## アーティファクトの表示
-
-```bash
-# ブラウザでHTMLレポートを表示
-npx playwright show-report
-
-# 特定のトレースファイルを表示
-npx playwright show-trace artifacts/trace-abc123.zip
-
-# スクリーンショットはartifacts/ディレクトリに保存
-open artifacts/search-results.png
+### JSON出力の検証
+```rust
+let output = cmd(&dir).args(["list", "--format", "json"]).output().unwrap();
+let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+assert_eq!(json["data"].as_array().unwrap().len(), 3);
 ```
 
-## 不安定なテストの検出
-
-テストが断続的に失敗する場合:
-
+### エラーケースの検証
+```rust
+cmd(&dir)
+    .args(["add"]) // 必須引数なし
+    .assert()
+    .failure();
 ```
-⚠️  不安定なテストを検出: tests/e2e/markets/trade.spec.ts
-
-テストは10回中7回パス（パス率70%）
-
-よくある失敗:
-"'[data-testid="confirm-btn"]'要素のタイムアウト待ち"
-
-推奨される修正:
-1. 明示的な待機を追加: await page.waitForSelector('[data-testid="confirm-btn"]')
-2. タイムアウトを延長: { timeout: 10000 }
-3. コンポーネントの競合状態を確認
-4. アニメーションで要素が隠れていないか確認
-
-隔離の推奨: 修正まで test.fixme() としてマーク
-```
-
-## ブラウザ設定
-
-デフォルトで複数ブラウザでテストを実行:
-- ✅ Chromium（デスクトップChrome）
-- ✅ Firefox（デスクトップ）
-- ✅ WebKit（デスクトップSafari）
-- ✅ モバイルChrome（オプション）
-
-ブラウザを調整するには `playwright.config.ts` で設定。
-
-## CI/CD統合
-
-CIパイプラインに追加:
-
-```yaml
-# .github/workflows/e2e.yml
-- name: Playwrightをインストール
-  run: npx playwright install --with-deps
-
-- name: E2Eテストを実行
-  run: npx playwright test
-
-- name: アーティファクトをアップロード
-  if: always()
-  uses: actions/upload-artifact@v3
-  with:
-    name: playwright-report
-    path: playwright-report/
-```
-
-## PMX固有のクリティカルフロー
-
-PMXでは、以下のE2Eテストを優先:
-
-**🔴 CRITICAL（常にパス必須）:**
-1. ユーザーがウォレットを接続できる
-2. ユーザーがマーケットを閲覧できる
-3. ユーザーがマーケットを検索できる（セマンティック検索）
-4. ユーザーがマーケット詳細を表示できる
-5. ユーザーが取引を行える（テスト資金で）
-6. マーケットが正しく解決される
-7. ユーザーが資金を引き出せる
-
-**🟡 IMPORTANT:**
-1. マーケット作成フロー
-2. ユーザープロフィール更新
-3. リアルタイム価格更新
-4. チャートレンダリング
-5. マーケットのフィルタとソート
-6. モバイルレスポンシブレイアウト
 
 ## ベストプラクティス
 
 **推奨:**
-- ✅ メンテナンス性のためPage Object Modelを使用
-- ✅ セレクタにdata-testid属性を使用
-- ✅ 任意のタイムアウトではなくAPIレスポンスを待機
-- ✅ クリティカルなユーザージャーニーをエンドツーエンドでテスト
-- ✅ mainへのマージ前にテストを実行
-- ✅ テスト失敗時にアーティファクトを確認
+- ✅ `TempDir` で各テストを分離
+- ✅ `--format json` で構造的な出力検証
+- ✅ 正常系とエラー系の両方をテスト
+- ✅ コマンド間の連携をテスト
+- ✅ テスト後の自動クリーンアップ（`TempDir` の drop）
 
 **非推奨:**
-- ❌ 脆いセレクタの使用（CSSクラスは変更される可能性あり）
-- ❌ 実装の詳細をテスト
-- ❌ 本番環境に対してテストを実行
-- ❌ 不安定なテストを無視
-- ❌ 失敗時のアーティファクト確認をスキップ
-- ❌ 全てのエッジケースをE2Eでテスト（ユニットテストを使用）
+- ❌ テスト間でデータを共有
+- ❌ 出力の完全一致テスト（部分一致を使用）
+- ❌ テスト順序に依存
+- ❌ ハードコードされた UUID やタイムスタンプの検証
 
-## 重要な注意事項
+## CI/CD統合
 
-**PMX用のCRITICAL:**
-- 実際のお金に関わるE2Eテストはテストネット/ステージング環境でのみ実行すること
-- 本番環境に対して取引テストを実行しないこと
-- 金融テストには `test.skip(process.env.NODE_ENV === 'production')` を設定
-- 少額のテスト資金のみのテストウォレットを使用
+```yaml
+- name: E2Eテストを実行
+  run: cargo test --test 'e2e_*'
+```
 
 ## 他のコマンドとの連携
 
-- `/plan` でテストすべきクリティカルなジャーニーを特定
+- `/plan` でテストすべきクリティカルなフローを特定
 - `/tdd` でユニットテスト（より高速、より細粒度）
-- `/e2e` で統合テストとユーザージャーニーテスト
+- `/e2e` で CLI コマンドの統合テスト
 - `/code-review` でテスト品質を検証
-
-## 関連エージェント
-
-このコマンドは以下にある `e2e-runner` エージェントを呼び出す:
-`~/.claude/agents/e2e-runner.md`
-
-## クイックコマンド
-
-```bash
-# 全E2Eテストを実行
-npx playwright test
-
-# 特定のテストファイルを実行
-npx playwright test tests/e2e/markets/search.spec.ts
-
-# ヘッドモードで実行（ブラウザを表示）
-npx playwright test --headed
-
-# テストをデバッグ
-npx playwright test --debug
-
-# テストコードを生成
-npx playwright codegen http://localhost:3000
-
-# レポートを表示
-npx playwright show-report
-```

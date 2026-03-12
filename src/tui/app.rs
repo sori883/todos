@@ -1,15 +1,17 @@
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 
 use crate::model::filter::TaskFilter;
-use crate::model::recurrence::Recurrence;
-use crate::model::task::{CreatedBy, Priority, Status, Task, TaskId};
+use crate::model::task::{Priority, Status, Task, TaskId};
 use crate::service::task_service::TaskService;
 
 use super::pages;
+
+#[path = "app_form.rs"]
+mod form_handlers;
 
 // Priority options for form selector
 pub const PRIORITIES: &[Priority] = &[
@@ -18,11 +20,6 @@ pub const PRIORITIES: &[Priority] = &[
     Priority::Medium,
     Priority::High,
     Priority::Critical,
-];
-
-// Recurrence options for form selector
-pub const RECURRENCES: &[&str] = &[
-    "never", "daily", "weekly", "monthly", "yearly",
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,15 +39,30 @@ pub enum FormMode {
 pub struct TaskFormData {
     pub mode: FormMode,
     pub title: String,
-    pub description: String,
+    pub title_cursor: usize,
+    pub content: String,
+    pub content_cursor_row: usize,
+    pub content_cursor_col: usize,
     pub priority_index: usize,
     pub label_index: usize, // 0 = none, 1+ = labels
     pub project: String,
-    pub recurrence_index: usize,
-    pub parent_id: Option<TaskId>,
+    pub project_cursor: usize,
+    pub parent_index: usize,                        // 0 = none, 1+ = available_parents
+    pub available_parents: Vec<(TaskId, String)>,   // (id, title) of root tasks
     pub editing_task_id: Option<TaskId>,
     pub focused_field: usize,
     pub available_labels: Vec<String>, // cached labels from settings
+}
+
+impl TaskFormData {
+    /// Get the selected parent task ID (None if index is 0).
+    pub fn selected_parent_id(&self) -> Option<TaskId> {
+        if self.parent_index == 0 {
+            None
+        } else {
+            self.available_parents.get(self.parent_index - 1).map(|(id, _)| *id)
+        }
+    }
 }
 
 pub struct KeyResult {
@@ -122,7 +134,7 @@ impl App {
     }
 
     pub fn form_parent_id(&self) -> Option<TaskId> {
-        self.form.as_ref().and_then(|f| f.parent_id)
+        self.form.as_ref().and_then(|f| f.selected_parent_id())
     }
 
     /// Render the current state to the given frame.
@@ -197,7 +209,19 @@ impl App {
         };
 
         match self.service.list_tasks_tree(&filter) {
-            Ok(tasks) => {
+            Ok(mut tasks) => {
+                // When show_completed is on, also include archived (done/cancelled) tasks
+                if self.show_completed {
+                    let archive_filter = TaskFilter {
+                        project: self.current_project_filter().map(|s| s.to_string()),
+                        include_done: true,
+                        include_cancelled: true,
+                        ..Default::default()
+                    };
+                    if let Ok(archived) = self.service.list_archive(&archive_filter) {
+                        tasks.extend(archived);
+                    }
+                }
                 self.tasks = tasks;
                 // Adjust selected_index if it's out of bounds
                 if !self.tasks.is_empty() && self.selected_index >= self.tasks.len() {
@@ -228,15 +252,10 @@ impl App {
     }
 
     fn service_invalidate_cache(&self) {
-        // Access the store's invalidate_cache through the service.
-        // We need to expose this - for now we re-create by forcing a reload.
-        // The JsonStore has invalidate_cache, but TaskService doesn't expose it.
-        // We'll add a method to TaskService.
         self.service.invalidate_cache();
     }
 
     fn update_project_tabs(&mut self) {
-        // Scan all tasks (including done/cancelled) for unique projects
         let all_filter = TaskFilter {
             include_done: true,
             include_cancelled: true,
@@ -280,7 +299,6 @@ impl App {
     }
 
     fn task_id_prefix(&self, task: &Task) -> String {
-        // Use at least 8 chars of the task ID for prefix lookup
         let id_str = task.id.to_string();
         id_str[..8.min(id_str.len())].to_string()
     }
@@ -294,7 +312,7 @@ impl App {
         }
     }
 
-    // --- Key handlers per state ---
+    // --- Key handlers ---
 
     fn handle_key_list(&mut self, key: KeyEvent) -> KeyResult {
         match key.code {
@@ -312,7 +330,6 @@ impl App {
                 }
             }
             KeyCode::Char('h') | KeyCode::Left => {
-                // Previous project tab
                 if self.current_tab > 0 {
                     self.current_tab -= 1;
                 } else {
@@ -322,7 +339,6 @@ impl App {
                 self.reload_tasks();
             }
             KeyCode::Char('l') | KeyCode::Right => {
-                // Next project tab
                 if self.current_tab < self.project_tabs.len() - 1 {
                     self.current_tab += 1;
                 } else {
@@ -358,104 +374,6 @@ impl App {
                 self.status_message_time = None;
             }
             _ => {}
-        }
-        KeyResult { should_quit: false }
-    }
-
-    fn handle_key_form(&mut self, key: KeyEvent) -> KeyResult {
-        if let Some(ref mut form) = self.form {
-            match key.code {
-                KeyCode::Esc => {
-                    self.form = None;
-                    self.state = AppState::TaskList;
-                }
-                KeyCode::Enter => {
-                    self.save_form();
-                }
-                KeyCode::Tab => {
-                    // Move to next field
-                    form.focused_field = (form.focused_field + 1) % 6;
-                }
-                KeyCode::BackTab => {
-                    // Move to previous field
-                    if form.focused_field == 0 {
-                        form.focused_field = 5;
-                    } else {
-                        form.focused_field -= 1;
-                    }
-                }
-                KeyCode::Backspace => {
-                    match form.focused_field {
-                        0 => { form.title.pop(); }
-                        1 => { form.description.pop(); }
-                        4 => { form.project.pop(); }
-                        _ => {}
-                    }
-                }
-                KeyCode::Left => {
-                    match form.focused_field {
-                        2 => {
-                            // Priority selector - decrease
-                            if form.priority_index > 0 {
-                                form.priority_index -= 1;
-                            }
-                        }
-                        3 => {
-                            // Label selector - decrease
-                            if form.label_index > 0 {
-                                form.label_index -= 1;
-                            }
-                        }
-                        5 => {
-                            // Recurrence selector - decrease (skip if subtask)
-                            if form.mode != FormMode::Subtask && form.recurrence_index > 0 {
-                                form.recurrence_index -= 1;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                KeyCode::Right => {
-                    match form.focused_field {
-                        2 => {
-                            // Priority selector - increase
-                            if form.priority_index < PRIORITIES.len() - 1 {
-                                form.priority_index += 1;
-                            }
-                        }
-                        3 => {
-                            // Label selector - increase
-                            let max = form.available_labels.len(); // 0=none + labels
-                            if form.label_index < max {
-                                form.label_index += 1;
-                            }
-                        }
-                        5 => {
-                            // Recurrence selector - increase (skip if subtask)
-                            if form.mode != FormMode::Subtask
-                                && form.recurrence_index < RECURRENCES.len() - 1
-                            {
-                                form.recurrence_index += 1;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-                KeyCode::Char(c) => {
-                    // Only allow typing in text fields
-                    if key.modifiers.contains(KeyModifiers::CONTROL) {
-                        // Ignore ctrl combos
-                    } else {
-                        match form.focused_field {
-                            0 => form.title.push(c),
-                            1 => form.description.push(c),
-                            4 => form.project.push(c),
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
         }
         KeyResult { should_quit: false }
     }
@@ -497,194 +415,7 @@ impl App {
         KeyResult { should_quit: false }
     }
 
-    // --- Form operations ---
-
-    fn open_new_task_form(&mut self) {
-        let labels = self.get_available_labels();
-        self.form = Some(TaskFormData {
-            mode: FormMode::New,
-            title: String::new(),
-            description: String::new(),
-            priority_index: 0,
-            label_index: 0,
-            project: String::new(),
-            recurrence_index: 0,
-            parent_id: None,
-            editing_task_id: None,
-            focused_field: 0,
-            available_labels: labels,
-        });
-        self.state = AppState::TaskForm;
-    }
-
-    fn open_edit_form(&mut self) {
-        if let Some(task) = self.selected_task().cloned() {
-            let labels = self.get_available_labels();
-            let priority_index = PRIORITIES
-                .iter()
-                .position(|p| *p == task.priority)
-                .unwrap_or(0);
-            let label_index = match &task.label {
-                None => 0,
-                Some(l) => labels.iter().position(|lab| lab == l).map_or(0, |i| i + 1),
-            };
-            let recurrence_index = match &task.recurrence {
-                Recurrence::Never => 0,
-                Recurrence::Daily => 1,
-                Recurrence::Weekly => 2,
-                Recurrence::Monthly => 3,
-                Recurrence::Yearly => 4,
-                _ => 0,
-            };
-
-            self.form = Some(TaskFormData {
-                mode: FormMode::Edit,
-                title: task.title.clone(),
-                description: task.description.clone().unwrap_or_default(),
-                priority_index,
-                label_index,
-                project: task.project.clone().unwrap_or_default(),
-                recurrence_index,
-                parent_id: task.parent_id,
-                editing_task_id: Some(task.id),
-                focused_field: 0,
-                available_labels: labels,
-            });
-            self.state = AppState::TaskForm;
-        }
-    }
-
-    fn open_subtask_form(&mut self) {
-        if let Some(task) = self.selected_task().cloned() {
-            // If selected task is already a subtask, use its parent
-            let parent_id = if task.parent_id.is_some() {
-                task.parent_id
-            } else {
-                Some(task.id)
-            };
-
-            let labels = self.get_available_labels();
-            self.form = Some(TaskFormData {
-                mode: FormMode::Subtask,
-                title: String::new(),
-                description: String::new(),
-                priority_index: 0,
-                label_index: 0,
-                project: task.project.clone().unwrap_or_default(),
-                recurrence_index: 0, // locked to never
-                parent_id,
-                editing_task_id: None,
-                focused_field: 0,
-                available_labels: labels,
-            });
-            self.state = AppState::TaskForm;
-        }
-    }
-
-    fn save_form(&mut self) {
-        let form = match self.form.take() {
-            Some(f) => f,
-            None => return,
-        };
-
-        if form.title.trim().is_empty() {
-            self.set_status_message("Title cannot be empty".to_string());
-            self.form = Some(form);
-            return;
-        }
-
-        let priority = PRIORITIES[form.priority_index];
-        let label = if form.label_index == 0 {
-            None
-        } else {
-            form.available_labels.get(form.label_index - 1).cloned()
-        };
-        let project = if form.project.trim().is_empty() {
-            None
-        } else {
-            Some(form.project.trim().to_string())
-        };
-        let recurrence_str = RECURRENCES[form.recurrence_index];
-        let recurrence = Recurrence::parse(recurrence_str).unwrap_or(Recurrence::Never);
-        let description = if form.description.trim().is_empty() {
-            None
-        } else {
-            Some(form.description.trim().to_string())
-        };
-
-        match form.mode {
-            FormMode::New => {
-                match self.service.add_task(
-                    form.title.trim().to_string(),
-                    description,
-                    priority,
-                    CreatedBy::Human,
-                    label,
-                    project,
-                    None,
-                    recurrence,
-                ) {
-                    Ok(_) => {
-                        self.set_status_message("Task created".to_string());
-                    }
-                    Err(e) => {
-                        self.set_status_message(format!("Failed to create task: {e}"));
-                    }
-                }
-            }
-            FormMode::Edit => {
-                if let Some(task_id) = form.editing_task_id {
-                    let prefix = task_id.to_string();
-                    let prefix = &prefix[..8.min(prefix.len())];
-                    match self.service.edit_task(
-                        prefix,
-                        Some(form.title.trim().to_string()),
-                        description,
-                        Some(priority),
-                        label,
-                        project,
-                        None,
-                        Some(recurrence),
-                    ) {
-                        Ok(_) => {
-                            self.set_status_message("Task updated".to_string());
-                        }
-                        Err(e) => {
-                            self.set_status_message(format!("Failed to update task: {e}"));
-                        }
-                    }
-                }
-            }
-            FormMode::Subtask => {
-                let parent_str = form.parent_id.map(|id| {
-                    let s = id.to_string();
-                    s[..8.min(s.len())].to_string()
-                });
-                match self.service.add_task(
-                    form.title.trim().to_string(),
-                    description,
-                    priority,
-                    CreatedBy::Human,
-                    label,
-                    project,
-                    parent_str,
-                    Recurrence::Never,
-                ) {
-                    Ok(_) => {
-                        self.set_status_message("Task created".to_string());
-                    }
-                    Err(e) => {
-                        self.set_status_message(format!("Failed to create subtask: {e}"));
-                    }
-                }
-            }
-        }
-
-        self.state = AppState::TaskList;
-        self.update_mtime();
-        self.service_invalidate_cache();
-        self.reload_tasks();
-    }
+    // --- Task actions ---
 
     fn toggle_status(&mut self) {
         if let Some(task) = self.selected_task().cloned() {
@@ -692,11 +423,16 @@ impl App {
             let new_status = Self::next_status(task.status);
             match self.service.change_status(&prefix, new_status) {
                 Ok(result) => {
-                    if let Some(ref generated) = result.generated_task {
-                        self.set_status_message(format!(
-                            "繰り返しタスクを生成しました: {}",
-                            generated.title
-                        ));
+                    if result.archived {
+                        let msg = if result.archived_subtasks > 0 {
+                            format!(
+                                "サブタスク{}件と共にアーカイブしました",
+                                result.archived_subtasks
+                            )
+                        } else {
+                            "アーカイブしました".to_string()
+                        };
+                        self.set_status_message(msg);
                     }
                 }
                 Err(e) => {
@@ -713,8 +449,19 @@ impl App {
         if let Some(task) = self.selected_task().cloned() {
             let prefix = self.task_id_prefix(&task);
             match self.service.change_status(&prefix, "cancelled") {
-                Ok(_) => {
-                    self.set_status_message(format!("Cancelled '{}'", task.title));
+                Ok(result) => {
+                    let mut msg = format!("Cancelled '{}'", task.title);
+                    if result.archived {
+                        if result.archived_subtasks > 0 {
+                            msg.push_str(&format!(
+                                " | サブタスク{}件と共にアーカイブしました",
+                                result.archived_subtasks
+                            ));
+                        } else {
+                            msg.push_str(" | アーカイブしました");
+                        }
+                    }
+                    self.set_status_message(msg);
                 }
                 Err(e) => {
                     self.set_status_message(format!("Cancel failed: {e}"));
@@ -731,34 +478,6 @@ impl App {
             self.delete_target = Some(task);
             self.state = AppState::DeleteConfirm;
         }
-    }
-
-    fn get_available_labels(&self) -> Vec<String> {
-        // Get labels from settings via the service
-        // We'll scan existing tasks for used labels and combine with known builtins
-        let all_filter = TaskFilter {
-            include_done: true,
-            include_cancelled: true,
-            ..Default::default()
-        };
-        let mut labels: Vec<String> = vec![
-            "bug".to_string(),
-            "feature".to_string(),
-            "improvement".to_string(),
-            "documentation".to_string(),
-            "refactor".to_string(),
-            "chore".to_string(),
-        ];
-        if let Ok(all_tasks) = self.service.list_tasks(&all_filter) {
-            for task in &all_tasks {
-                if let Some(ref label) = task.label {
-                    if !labels.contains(label) {
-                        labels.push(label.clone());
-                    }
-                }
-            }
-        }
-        labels
     }
 
     // --- Public accessors for rendering ---

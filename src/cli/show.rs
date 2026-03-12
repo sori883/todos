@@ -21,7 +21,10 @@ struct ParentInfo {
 }
 
 pub fn run(service: &TaskService, id_prefix: &str, format: &str) -> Result<(), AppError> {
-    let task = service.get_task(id_prefix)?;
+    let task = match service.get_task(id_prefix) {
+        Ok(t) => t,
+        Err(_) => service.get_task_from_archive(id_prefix)?,
+    };
 
     // If this is a parent task (no parent_id), get subtasks
     let subtasks = if task.parent_id.is_none() {
@@ -71,8 +74,8 @@ fn format_text_output(data: &ShowData) -> String {
 
     lines.push(format!("ID:          {}", task.id));
     lines.push(format!("Title:       {}", task.title));
-    if let Some(ref desc) = task.description {
-        lines.push(format!("Description: {desc}"));
+    if let Some(ref content) = task.content {
+        lines.push(format!("Content: {content}"));
     }
     lines.push(format!("Status:      {}", task.status));
     lines.push(format!("Priority:    {}", task.priority));
@@ -83,7 +86,6 @@ fn format_text_output(data: &ShowData) -> String {
     if let Some(ref project) = task.project {
         lines.push(format!("Project:     {project}"));
     }
-    lines.push(format!("Recurrence:  {:?}", task.recurrence));
     lines.push(format!("Created at:  {}", task.created_at));
     lines.push(format!("Updated at:  {}", task.updated_at));
 

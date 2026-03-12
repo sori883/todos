@@ -23,12 +23,6 @@ pub enum AppError {
     #[error("Nesting too deep: subtasks cannot have children")]
     NestingTooDeep,
 
-    #[error("Subtasks cannot have recurrence")]
-    SubtaskRecurrence,
-
-    #[error("Recurrence generation failed: {0}")]
-    RecurrenceGenerationFailed(String),
-
     #[error("Data file error: {0}")]
     DataFile(String),
 

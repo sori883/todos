@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":semanticCommitTypeAll(chore)"
+  ],
+  "labels": ["dependencies"],
+  "cargo": {
+    "rangeStrategy": "bump"
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "platformAutomerge": true,
+      "automergeStrategy": "squash",
+      "groupName": "rust patch updates"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "matchDepTypes": ["dev-dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "platformAutomerge": true,
+      "groupName": "rust dev dependencies"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "labels": ["dependencies", "breaking"]
+    }
+  ]
+}
