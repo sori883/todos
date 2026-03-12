@@ -439,7 +439,7 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         Some(Commands::Init { force }) => {
-            let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
+            let data_dir = paths::init_data_dir(cli_args.data_dir.as_deref());
             let locale = load_locale(&data_dir);
             cli::init::run(&data_dir, force, format, &locale)?;
             Ok(())

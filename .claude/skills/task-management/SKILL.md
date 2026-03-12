@@ -48,13 +48,14 @@ todos status <ID> in_progress   # 着手
 todos status <ID> done          # 完了してから次へ
 ```
 
-### Phase 5: 検証
+### Phase 5: 検証（CI 準拠）
+
+CI（`setup-rust-toolchain@v1`）は `RUSTFLAGS="-D warnings"` を設定するため、テストでもコンパイル警告がエラーになる。ローカルで同条件を再現すること。
 
 ```bash
-cargo build \
+cargo fmt --all -- --check \
   && cargo clippy --all-targets --all-features -- -D warnings \
-  && cargo fmt --all -- --check \
-  && cargo test
+  && RUSTFLAGS="-D warnings" cargo test --all-features
 ```
 
 ### Phase 6: 完了
