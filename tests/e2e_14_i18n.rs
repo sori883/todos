@@ -65,7 +65,7 @@ fn error_message_task_not_found() {
         .clone();
     let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     assert_eq!(json["success"], false);
-    assert!(json["error"].as_str().unwrap().len() > 0);
+    assert!(!json["error"].as_str().unwrap().is_empty());
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn error_message_ambiguous_id() {
         .clone();
     let json: serde_json::Value = serde_json::from_slice(&output).unwrap();
     assert_eq!(json["success"], false);
-    assert!(json["error"].as_str().unwrap().len() > 0);
+    assert!(!json["error"].as_str().unwrap().is_empty());
 }
 
 // === Help test ===

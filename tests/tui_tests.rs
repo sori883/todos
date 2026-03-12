@@ -234,10 +234,7 @@ fn new_task_form_opens_on_n() {
 #[test]
 fn subtask_form_opens_on_s() {
     let dir = setup();
-    todos_cmd(dir.path())
-        .args(["add", "親"])
-        .assert()
-        .success();
+    todos_cmd(dir.path()).args(["add", "親"]).assert().success();
     let mut app = create_test_app_with_data(dir.path());
     app.handle_key(key('s'));
     assert_eq!(app.state(), &AppState::TaskForm);
@@ -398,7 +395,12 @@ fn repro_small_terminal_with_tasks_no_crash() {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             terminal.draw(|f| app.render(f)).unwrap();
         }));
-        assert!(result.is_ok(), "Crashed at terminal size {}x{} with form", w, h);
+        assert!(
+            result.is_ok(),
+            "Crashed at terminal size {}x{} with form",
+            w,
+            h
+        );
     }
     // Also test delete confirm dialog
     app.handle_key(KeyCode::Esc.into());
@@ -409,7 +411,12 @@ fn repro_small_terminal_with_tasks_no_crash() {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             terminal.draw(|f| app.render(f)).unwrap();
         }));
-        assert!(result.is_ok(), "Crashed at terminal size {}x{} with delete confirm", w, h);
+        assert!(
+            result.is_ok(),
+            "Crashed at terminal size {}x{} with delete confirm",
+            w,
+            h
+        );
     }
 }
 
@@ -432,13 +439,19 @@ fn project_indicator_shows_current_project() {
     // Initial: "All" project
     let buffer = render_app(&app, 80, 24);
     let content = buffer_to_string(&buffer);
-    assert!(content.contains("All"), "Should show 'All' as current project");
+    assert!(
+        content.contains("All"),
+        "Should show 'All' as current project"
+    );
 
     // Switch to next project
     app.handle_key(key('l'));
     let buffer = render_app(&app, 80, 24);
     let content = buffer_to_string(&buffer);
-    assert!(content.contains("alpha"), "Should show 'alpha' as current project");
+    assert!(
+        content.contains("alpha"),
+        "Should show 'alpha' as current project"
+    );
 }
 
 // ============================================================
@@ -493,7 +506,10 @@ fn form_create_subtask_via_parent_selector() {
     assert_eq!(app.visible_task_count(), 2);
     // The second task should be a subtask
     let tasks = app.tasks();
-    let child = tasks.iter().find(|t| t.title == "Child via selector").unwrap();
+    let child = tasks
+        .iter()
+        .find(|t| t.title == "Child via selector")
+        .unwrap();
     assert!(child.parent_id.is_some());
 }
 
@@ -508,7 +524,10 @@ fn form_parent_field_renders_in_form() {
     app.handle_key(key('n'));
     let buffer = render_app(&app, 80, 24);
     let content = buffer_to_string(&buffer);
-    assert!(content.contains("Parent"), "Form should contain Parent field");
+    assert!(
+        content.contains("Parent"),
+        "Form should contain Parent field"
+    );
 }
 
 #[test]
@@ -527,7 +546,10 @@ fn subtask_form_parent_locked() {
     assert!(form.parent_index > 0);
     let buffer = render_app(&app, 80, 24);
     let content = buffer_to_string(&buffer);
-    assert!(content.contains("Parent (locked)"), "Subtask form should show locked parent");
+    assert!(
+        content.contains("Parent (locked)"),
+        "Subtask form should show locked parent"
+    );
 }
 
 // ============================================================
@@ -619,7 +641,9 @@ fn delete_confirm_esc_cancels() {
 fn edit_form_prefills_existing_values() {
     let dir = setup();
     todos_cmd(dir.path())
-        .args(["add", "MyTitle", "-d", "MyDesc", "-p", "high", "-l", "bug", "-P", "proj1"])
+        .args([
+            "add", "MyTitle", "-d", "MyDesc", "-p", "high", "-l", "bug", "-P", "proj1",
+        ])
         .assert()
         .success();
     let mut app = create_test_app_with_data(dir.path());
@@ -654,9 +678,19 @@ fn edit_form_parent_excludes_self() {
     app.handle_key(key('e'));
     let form = app.form().unwrap();
     // Available parents should contain TaskB but not TaskA (self)
-    let titles: Vec<&str> = form.available_parents.iter().map(|(_, t)| t.as_str()).collect();
-    assert!(titles.contains(&"TaskB"), "TaskB should be available as parent");
-    assert!(!titles.contains(&"TaskA"), "TaskA (self) should NOT be available as parent");
+    let titles: Vec<&str> = form
+        .available_parents
+        .iter()
+        .map(|(_, t)| t.as_str())
+        .collect();
+    assert!(
+        titles.contains(&"TaskB"),
+        "TaskB should be available as parent"
+    );
+    assert!(
+        !titles.contains(&"TaskA"),
+        "TaskA (self) should NOT be available as parent"
+    );
 }
 
 // ============================================================
@@ -675,7 +709,11 @@ fn form_tab_cycles_all_fields() {
         assert_eq!(app.form().unwrap().focused_field, expected);
     }
     app.handle_key(KeyCode::Tab.into());
-    assert_eq!(app.form().unwrap().focused_field, 0, "Should wrap around to field 0");
+    assert_eq!(
+        app.form().unwrap().focused_field,
+        0,
+        "Should wrap around to field 0"
+    );
 }
 
 #[test]
@@ -685,7 +723,11 @@ fn form_backtab_cycles_all_fields() {
     assert_eq!(app.form().unwrap().focused_field, 0);
     // BackTab from 0 should go to last field (5)
     app.handle_key(KeyCode::BackTab.into());
-    assert_eq!(app.form().unwrap().focused_field, 5, "BackTab from 0 should wrap to last field");
+    assert_eq!(
+        app.form().unwrap().focused_field,
+        5,
+        "BackTab from 0 should wrap to last field"
+    );
     // BackTab again should go to 4
     app.handle_key(KeyCode::BackTab.into());
     assert_eq!(app.form().unwrap().focused_field, 4);
@@ -777,9 +819,18 @@ fn content_multiline_display_in_detail() {
     let content = buffer_to_string(&buffer);
     // The detail panel should show each line separately
     // Content section shows lines directly (no "Content:" label in new design)
-    assert!(content.contains("first"), "Should show first line of content");
-    assert!(content.contains("second"), "Should show second line of content");
-    assert!(content.contains("third"), "Should show third line of content");
+    assert!(
+        content.contains("first"),
+        "Should show first line of content"
+    );
+    assert!(
+        content.contains("second"),
+        "Should show second line of content"
+    );
+    assert!(
+        content.contains("third"),
+        "Should show third line of content"
+    );
 }
 
 #[test]

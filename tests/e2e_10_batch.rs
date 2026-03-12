@@ -24,11 +24,15 @@ fn batch_mixed_operations() {
     let t = todos_json(dir.path(), &["add", "既存タスク"]);
     let id = t["data"]["task"]["id"].as_str().unwrap();
     // edit before status change to done (done archives the task)
-    let input = format!(r#"[
+    let input = format!(
+        r#"[
         {{"action": "add", "title": "新規", "created_by": "ai"}},
         {{"action": "edit", "id": "{}", "priority": "high"}},
         {{"action": "status", "id": "{}", "status": "done"}}
-    ]"#, &id[..8], &id[..8]);
+    ]"#,
+        &id[..8],
+        &id[..8]
+    );
     let json = todos_json_stdin(dir.path(), &["batch"], &input);
     assert_eq!(json["data"]["summary"]["succeeded"], 3);
 }
@@ -53,9 +57,12 @@ fn batch_add_with_parent() {
     let dir = setup();
     let parent = todos_json(dir.path(), &["add", "親"]);
     let pid = parent["data"]["task"]["id"].as_str().unwrap();
-    let input = format!(r#"[
+    let input = format!(
+        r#"[
         {{"action": "add", "title": "子タスク", "parent_id": "{}"}}
-    ]"#, &pid[..8]);
+    ]"#,
+        &pid[..8]
+    );
     let json = todos_json_stdin(dir.path(), &["batch"], &input);
     assert_eq!(json["data"]["summary"]["succeeded"], 1);
     assert!(json["data"]["results"][0]["task"]["parent_id"].is_string());
@@ -86,5 +93,6 @@ fn batch_invalid_json_fails() {
     todos_cmd(dir.path())
         .args(["batch"])
         .write_stdin("not json")
-        .assert().failure();
+        .assert()
+        .failure();
 }

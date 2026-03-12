@@ -19,9 +19,7 @@ pub fn sanitize_title(title: &str, settings: &Settings) -> Result<String, AppErr
     let sanitized = strip_control_chars(title.trim(), false);
 
     if sanitized.is_empty() {
-        return Err(AppError::InvalidInput(
-            "Title cannot be empty".to_string(),
-        ));
+        return Err(AppError::InvalidInput("Title cannot be empty".to_string()));
     }
 
     if sanitized.chars().count() > max_len {
@@ -191,7 +189,10 @@ mod tests {
     #[test]
     fn title_handles_unicode() {
         let s = default_settings();
-        assert_eq!(sanitize_title("日本語タイトル", &s).unwrap(), "日本語タイトル");
+        assert_eq!(
+            sanitize_title("日本語タイトル", &s).unwrap(),
+            "日本語タイトル"
+        );
         let jp = "あ".repeat(200);
         assert!(sanitize_title(&jp, &s).is_ok());
         let jp_long = "あ".repeat(201);

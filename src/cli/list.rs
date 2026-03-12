@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::error::AppError;
 use crate::model::filter::TaskFilter;
 use crate::model::task::{Priority, Task};
@@ -109,10 +109,10 @@ fn sort_tree_tasks(tasks: &mut Vec<Task>, sort_field: &str, reverse: bool) {
 
     // Add orphan children
     for child in &children {
-        if let Some(pid) = child.parent_id {
-            if !roots.iter().any(|r| r.id == pid) {
-                tasks.push(child.clone());
-            }
+        if let Some(pid) = child.parent_id
+            && !roots.iter().any(|r| r.id == pid)
+        {
+            tasks.push(child.clone());
         }
     }
 }

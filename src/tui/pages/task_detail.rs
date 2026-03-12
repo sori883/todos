@@ -62,7 +62,12 @@ pub fn render(frame: &mut Frame, task: &Task, app: &App, area: Rect) {
     if task.parent_id.is_none() {
         let subtask_count = count_subtasks(app, task.id);
         if subtask_count > 0 {
-            push_field(&mut lines, "Subtasks", &subtask_count.to_string(), Color::White);
+            push_field(
+                &mut lines,
+                "Subtasks",
+                &subtask_count.to_string(),
+                Color::White,
+            );
         }
     }
 
@@ -116,10 +121,7 @@ fn push_field(lines: &mut Vec<Line>, label: &str, value: &str, value_color: Colo
 
 fn status_badge(status: Status) -> Span<'static> {
     match status {
-        Status::Todo => Span::styled(
-            " ○ todo ",
-            Style::default().fg(Color::White),
-        ),
+        Status::Todo => Span::styled(" ○ todo ", Style::default().fg(Color::White)),
         Status::InProgress => Span::styled(
             " ● in_progress ",
             Style::default().fg(Color::Black).bg(Color::Yellow),
@@ -138,10 +140,7 @@ fn status_badge(status: Status) -> Span<'static> {
 fn priority_badge(priority: Priority) -> Option<Span<'static>> {
     match priority {
         Priority::None => None,
-        Priority::Low => Some(Span::styled(
-            " low ",
-            Style::default().fg(Color::Blue),
-        )),
+        Priority::Low => Some(Span::styled(" low ", Style::default().fg(Color::Blue))),
         Priority::Medium => Some(Span::styled(
             " medium ",
             Style::default().fg(Color::Black).bg(Color::Yellow),

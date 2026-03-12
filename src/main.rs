@@ -7,8 +7,8 @@ use todos::config::paths;
 use todos::config::settings::Settings;
 use todos::model::filter::TaskFilter;
 use todos::model::task::{CreatedBy, Priority, Status};
-use todos::store::json_store::JsonStore;
 use todos::service::task_service::TaskService;
+use todos::store::json_store::JsonStore;
 use todos::tui;
 
 const COMMANDS_REFERENCE: &str = "\

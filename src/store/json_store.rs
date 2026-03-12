@@ -12,7 +12,7 @@ use crate::model::filter::TaskFilter;
 use crate::model::stats::Stats;
 use crate::model::task::{Status, Task, TaskId};
 use crate::store::repository::TaskRepository;
-use crate::store::schema::{TaskData, CURRENT_VERSION};
+use crate::store::schema::{CURRENT_VERSION, TaskData};
 
 pub struct JsonStore {
     path: PathBuf,
@@ -219,8 +219,11 @@ impl TaskRepository for JsonStore {
 
     fn stats(&self, filter: &TaskFilter) -> Result<Stats, AppError> {
         self.with_data(|data| {
-            let filtered: Vec<&Task> =
-                data.tasks.iter().filter(|t| apply_filter(t, filter)).collect();
+            let filtered: Vec<&Task> = data
+                .tasks
+                .iter()
+                .filter(|t| apply_filter(t, filter))
+                .collect();
 
             let mut by_status = std::collections::HashMap::new();
             let mut by_priority = std::collections::HashMap::new();

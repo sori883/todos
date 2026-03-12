@@ -47,8 +47,8 @@ pub struct TaskFormData {
     pub label_index: usize, // 0 = none, 1+ = labels
     pub project: String,
     pub project_cursor: usize,
-    pub parent_index: usize,                        // 0 = none, 1+ = available_parents
-    pub available_parents: Vec<(TaskId, String)>,   // (id, title) of root tasks
+    pub parent_index: usize, // 0 = none, 1+ = available_parents
+    pub available_parents: Vec<(TaskId, String)>, // (id, title) of root tasks
     pub editing_task_id: Option<TaskId>,
     pub focused_field: usize,
     pub available_labels: Vec<String>, // cached labels from settings
@@ -60,7 +60,9 @@ impl TaskFormData {
         if self.parent_index == 0 {
             None
         } else {
-            self.available_parents.get(self.parent_index - 1).map(|(id, _)| *id)
+            self.available_parents
+                .get(self.parent_index - 1)
+                .map(|(id, _)| *id)
         }
     }
 }
@@ -163,11 +165,11 @@ impl App {
     /// Handle a key event and return whether the app should quit.
     pub fn handle_key(&mut self, key: KeyEvent) -> KeyResult {
         // Clear expired status message (after 5 seconds)
-        if let Some(time) = self.status_message_time {
-            if time.elapsed().as_secs() >= 5 {
-                self.status_message.clear();
-                self.status_message_time = None;
-            }
+        if let Some(time) = self.status_message_time
+            && time.elapsed().as_secs() >= 5
+        {
+            self.status_message.clear();
+            self.status_message_time = None;
         }
 
         match self.state {
@@ -180,22 +182,21 @@ impl App {
     /// Handle tick events for mtime polling.
     pub fn handle_tick(&mut self) {
         // Clear expired status message
-        if let Some(time) = self.status_message_time {
-            if time.elapsed().as_secs() >= 5 {
-                self.status_message.clear();
-                self.status_message_time = None;
-            }
+        if let Some(time) = self.status_message_time
+            && time.elapsed().as_secs() >= 5
+        {
+            self.status_message.clear();
+            self.status_message_time = None;
         }
 
         // Check mtime
-        if let Ok(metadata) = std::fs::metadata(&self.tasks_path) {
-            if let Ok(mtime) = metadata.modified() {
-                if self.last_mtime.is_some_and(|last| mtime != last) {
-                    self.service_invalidate_cache();
-                    self.reload_tasks();
-                    self.last_mtime = Some(mtime);
-                }
-            }
+        if let Ok(metadata) = std::fs::metadata(&self.tasks_path)
+            && let Ok(mtime) = metadata.modified()
+            && self.last_mtime.is_some_and(|last| mtime != last)
+        {
+            self.service_invalidate_cache();
+            self.reload_tasks();
+            self.last_mtime = Some(mtime);
         }
     }
 
@@ -244,10 +245,10 @@ impl App {
     // --- Internal helpers ---
 
     fn update_mtime(&mut self) {
-        if let Ok(metadata) = std::fs::metadata(&self.tasks_path) {
-            if let Ok(mtime) = metadata.modified() {
-                self.last_mtime = Some(mtime);
-            }
+        if let Ok(metadata) = std::fs::metadata(&self.tasks_path)
+            && let Ok(mtime) = metadata.modified()
+        {
+            self.last_mtime = Some(mtime);
         }
     }
 
@@ -265,10 +266,10 @@ impl App {
         let mut projects: Vec<String> = Vec::new();
         if let Ok(all_tasks) = self.service.list_tasks(&all_filter) {
             for task in &all_tasks {
-                if let Some(ref proj) = task.project {
-                    if !projects.contains(proj) {
-                        projects.push(proj.clone());
-                    }
+                if let Some(ref proj) = task.project
+                    && !projects.contains(proj)
+                {
+                    projects.push(proj.clone());
                 }
             }
         }

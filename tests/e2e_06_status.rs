@@ -47,8 +47,10 @@ fn status_revert_from_done_clears_completed_at() {
     let dir = setup();
     let t = todos_json(dir.path(), &["add", "テスト"]);
     let id = t["data"]["task"]["id"].as_str().unwrap();
-    todos_cmd(dir.path()).args(["status", &id[..8], "done"]).assert().success();
+    todos_cmd(dir.path())
+        .args(["status", &id[..8], "done"])
+        .assert()
+        .success();
     let result = todos_json(dir.path(), &["status", &id[..8], "todo"]);
     assert!(result["data"]["task"]["completed_at"].is_null());
 }
-

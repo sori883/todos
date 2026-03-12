@@ -1,4 +1,4 @@
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::error::AppError;
 use crate::model::filter::TaskFilter;
 use crate::service::task_service::TaskService;

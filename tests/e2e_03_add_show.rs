@@ -68,7 +68,10 @@ fn add_subtask() {
     let dir = setup();
     let parent = todos_json(dir.path(), &["add", "親タスク"]);
     let parent_id = parent["data"]["task"]["id"].as_str().unwrap();
-    let child = todos_json(dir.path(), &["add", "子タスク", "--parent", &parent_id[..8]]);
+    let child = todos_json(
+        dir.path(),
+        &["add", "子タスク", "--parent", &parent_id[..8]],
+    );
     assert_eq!(child["data"]["task"]["parent_id"], parent_id);
 }
 

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::error::AppError;
 use crate::model::task::Task;
 use crate::service::task_service::TaskService;
@@ -90,7 +90,11 @@ fn format_text_output(data: &ShowData) -> String {
     lines.push(format!("Updated at:  {}", task.updated_at));
 
     if let Some(ref parent) = data.parent {
-        lines.push(format!("Parent:      {}.. {}", &parent.id[..8], parent.title));
+        lines.push(format!(
+            "Parent:      {}.. {}",
+            &parent.id[..8],
+            parent.title
+        ));
     }
 
     if let Some(ref subtasks) = data.subtasks {

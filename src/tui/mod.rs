@@ -34,16 +34,14 @@ pub fn run_tui(service: TaskService, tasks_path: PathBuf) -> Result<(), AppError
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)
-        .map_err(|e| AppError::Io(e))?;
+    let mut terminal = Terminal::new(backend).map_err(AppError::Io)?;
 
     let mut app = App::new(service, tasks_path);
     let event_handler = EventHandler::new(250);
 
     // Main loop
     loop {
-        terminal.draw(|f| app.render(f))
-            .map_err(|e| AppError::Io(e))?;
+        terminal.draw(|f| app.render(f)).map_err(AppError::Io)?;
 
         match event_handler.next()? {
             AppEvent::Key(key_event) => {
@@ -68,8 +66,7 @@ pub fn run_tui(service: TaskService, tasks_path: PathBuf) -> Result<(), AppError
         LeaveAlternateScreen,
         DisableMouseCapture
     )?;
-    terminal.show_cursor()
-        .map_err(|e| AppError::Io(e))?;
+    terminal.show_cursor().map_err(AppError::Io)?;
 
     Ok(())
 }

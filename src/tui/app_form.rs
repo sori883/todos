@@ -3,9 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::model::filter::TaskFilter;
 use crate::model::task::{CreatedBy, TaskId};
 
-use super::{
-    App, AppState, FormMode, KeyResult, TaskFormData, PRIORITIES,
-};
+use super::{App, AppState, FormMode, KeyResult, PRIORITIES, TaskFormData};
 
 impl App {
     pub(super) fn handle_key_form(&mut self, key: KeyEvent) -> KeyResult {
@@ -20,9 +18,7 @@ impl App {
                     self.state = AppState::TaskList;
                 }
                 KeyCode::Enter => {
-                    if form.focused_field == 5
-                        && key.modifiers.contains(KeyModifiers::ALT)
-                    {
+                    if form.focused_field == 5 && key.modifiers.contains(KeyModifiers::ALT) {
                         content_insert_newline(form);
                     } else {
                         self.save_form();
@@ -38,14 +34,12 @@ impl App {
                         form.focused_field -= 1;
                     }
                 }
-                KeyCode::Backspace => {
-                    match form.focused_field {
-                        0 => text_backspace(&mut form.title, &mut form.title_cursor),
-                        3 => text_backspace(&mut form.project, &mut form.project_cursor),
-                        5 => content_backspace(form),
-                        _ => {}
-                    }
-                }
+                KeyCode::Backspace => match form.focused_field {
+                    0 => text_backspace(&mut form.title, &mut form.title_cursor),
+                    3 => text_backspace(&mut form.project, &mut form.project_cursor),
+                    5 => content_backspace(form),
+                    _ => {}
+                },
                 KeyCode::Up => {
                     if form.focused_field == 5 {
                         content_move_up(form);
@@ -56,22 +50,18 @@ impl App {
                         content_move_down(form);
                     }
                 }
-                KeyCode::Left => {
-                    match form.focused_field {
-                        0 => text_move_left(&form.title, &mut form.title_cursor),
-                        3 => text_move_left(&form.project, &mut form.project_cursor),
-                        5 => content_move_left(form),
-                        _ => handle_selector_left(form),
-                    }
-                }
-                KeyCode::Right => {
-                    match form.focused_field {
-                        0 => text_move_right(&form.title, &mut form.title_cursor),
-                        3 => text_move_right(&form.project, &mut form.project_cursor),
-                        5 => content_move_right(form),
-                        _ => handle_selector_right(form),
-                    }
-                }
+                KeyCode::Left => match form.focused_field {
+                    0 => text_move_left(&form.title, &mut form.title_cursor),
+                    3 => text_move_left(&form.project, &mut form.project_cursor),
+                    5 => content_move_left(form),
+                    _ => handle_selector_left(form),
+                },
+                KeyCode::Right => match form.focused_field {
+                    0 => text_move_right(&form.title, &mut form.title_cursor),
+                    3 => text_move_right(&form.project, &mut form.project_cursor),
+                    5 => content_move_right(form),
+                    _ => handle_selector_right(form),
+                },
                 KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     if form.focused_field == 5 {
                         content_insert_newline(form);
@@ -140,7 +130,11 @@ impl App {
 
             let content_text = task.content.clone().unwrap_or_default();
             let c_lines: Vec<&str> = content_text.split('\n').collect();
-            let last_row = if c_lines.is_empty() { 0 } else { c_lines.len() - 1 };
+            let last_row = if c_lines.is_empty() {
+                0
+            } else {
+                c_lines.len() - 1
+            };
             let last_col = c_lines.last().map_or(0, |l| l.chars().count());
 
             let title_len = task.title.chars().count();
@@ -236,8 +230,9 @@ impl App {
         let has_parent = parent_str.is_some();
 
         let result = match form.mode {
-            FormMode::New | FormMode::Subtask => {
-                self.service.add_task(
+            FormMode::New | FormMode::Subtask => self
+                .service
+                .add_task(
                     form.title.trim().to_string(),
                     content,
                     priority,
@@ -245,15 +240,15 @@ impl App {
                     label,
                     project,
                     parent_str,
-                ).map(|_| {
+                )
+                .map(|_| {
                     if has_parent {
                         "Subtask created".to_string()
                     } else {
                         "Task created".to_string()
                     }
                 })
-                .map_err(|e| format!("Failed to create task: {e}"))
-            }
+                .map_err(|e| format!("Failed to create task: {e}")),
             FormMode::Edit => {
                 if let Some(task_id) = form.editing_task_id {
                     let prefix = task_id.to_string();
@@ -265,16 +260,18 @@ impl App {
                         }
                         None => Some("none".to_string()),
                     };
-                    self.service.edit_task(
-                        prefix_str,
-                        Some(form.title.trim().to_string()),
-                        content,
-                        Some(priority),
-                        label,
-                        project,
-                        parent_param,
-                    ).map(|_| "Task updated".to_string())
-                    .map_err(|e| format!("Failed to update task: {e}"))
+                    self.service
+                        .edit_task(
+                            prefix_str,
+                            Some(form.title.trim().to_string()),
+                            content,
+                            Some(priority),
+                            label,
+                            project,
+                            parent_param,
+                        )
+                        .map(|_| "Task updated".to_string())
+                        .map_err(|e| format!("Failed to update task: {e}"))
                 } else {
                     Err("No task ID for edit".to_string())
                 }
@@ -297,7 +294,10 @@ impl App {
         }
     }
 
-    pub(super) fn get_available_parents(&self, exclude_id: Option<TaskId>) -> Vec<(TaskId, String)> {
+    pub(super) fn get_available_parents(
+        &self,
+        exclude_id: Option<TaskId>,
+    ) -> Vec<(TaskId, String)> {
         let all_filter = TaskFilter {
             include_done: false,
             include_cancelled: false,
@@ -335,10 +335,10 @@ impl App {
         ];
         if let Ok(all_tasks) = self.service.list_tasks(&all_filter) {
             for task in &all_tasks {
-                if let Some(ref label) = task.label {
-                    if !labels.contains(label) {
-                        labels.push(label.clone());
-                    }
+                if let Some(ref label) = task.label
+                    && !labels.contains(label)
+                {
+                    labels.push(label.clone());
                 }
             }
         }
@@ -408,7 +408,11 @@ fn content_insert_char(form: &mut TaskFormData, c: char) {
     if form.content_cursor_col > char_count {
         form.content_cursor_col = char_count;
     }
-    let byte_idx: usize = line.chars().take(form.content_cursor_col).map(|ch| ch.len_utf8()).sum();
+    let byte_idx: usize = line
+        .chars()
+        .take(form.content_cursor_col)
+        .map(|ch| ch.len_utf8())
+        .sum();
     line.insert(byte_idx, c);
     form.content_cursor_col += 1;
     form.content = content_from_lines(&lines);
@@ -427,7 +431,11 @@ fn content_insert_newline(form: &mut TaskFormData) {
     if form.content_cursor_col > char_count {
         form.content_cursor_col = char_count;
     }
-    let byte_idx: usize = line.chars().take(form.content_cursor_col).map(|ch| ch.len_utf8()).sum();
+    let byte_idx: usize = line
+        .chars()
+        .take(form.content_cursor_col)
+        .map(|ch| ch.len_utf8())
+        .sum();
     let remainder = line[byte_idx..].to_string();
     let current = line[..byte_idx].to_string();
     lines[form.content_cursor_row] = current;
@@ -452,8 +460,16 @@ fn content_backspace(form: &mut TaskFormData) {
     }
 
     if form.content_cursor_col > 0 {
-        let byte_start: usize = line.chars().take(form.content_cursor_col - 1).map(|ch| ch.len_utf8()).sum();
-        let byte_end: usize = line.chars().take(form.content_cursor_col).map(|ch| ch.len_utf8()).sum();
+        let byte_start: usize = line
+            .chars()
+            .take(form.content_cursor_col - 1)
+            .map(|ch| ch.len_utf8())
+            .sum();
+        let byte_end: usize = line
+            .chars()
+            .take(form.content_cursor_col)
+            .map(|ch| ch.len_utf8())
+            .sum();
         let mut new_line = line[..byte_start].to_string();
         new_line.push_str(&line[byte_end..]);
         lines[form.content_cursor_row] = new_line;
@@ -551,9 +567,7 @@ fn handle_selector_right(form: &mut TaskFormData) {
             }
         }
         4 => {
-            if form.mode != FormMode::Subtask
-                && form.parent_index < form.available_parents.len()
-            {
+            if form.mode != FormMode::Subtask && form.parent_index < form.available_parents.len() {
                 form.parent_index += 1;
             }
         }

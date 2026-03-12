@@ -1,9 +1,9 @@
 use serde::Serialize;
 use std::io::{self, BufRead, Write};
 
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::error::AppError;
-use crate::i18n::{get_message, Message};
+use crate::i18n::{Message, get_message};
 use crate::model::task::Task;
 use crate::service::task_service::TaskService;
 
@@ -41,7 +41,7 @@ pub fn run(
                 children.len()
             );
         }
-        io::stdout().flush().map_err(|e| AppError::Io(e))?;
+        io::stdout().flush().map_err(AppError::Io)?;
 
         let stdin = io::stdin();
         let line = stdin
@@ -49,7 +49,7 @@ pub fn run(
             .lines()
             .next()
             .unwrap_or(Ok(String::new()))
-            .map_err(|e| AppError::Io(e))?;
+            .map_err(AppError::Io)?;
 
         if !line.trim().eq_ignore_ascii_case("y") {
             println!("Cancelled");

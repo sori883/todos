@@ -5,7 +5,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use unicode_width::UnicodeWidthChar;
 
-use crate::tui::app::{FormMode, TaskFormData, PRIORITIES};
+use crate::tui::app::{FormMode, PRIORITIES, TaskFormData};
 
 /// Render the task form as a centered overlay.
 pub fn render(frame: &mut Frame, form: &TaskFormData) {
@@ -45,7 +45,7 @@ pub fn render(frame: &mut Frame, form: &TaskFormData) {
         Constraint::Length(2), // 2: label
         Constraint::Length(2), // 3: project
         Constraint::Length(2), // 4: parent
-        Constraint::Min(3),   // 5: content (fills remaining space)
+        Constraint::Min(3),    // 5: content (fills remaining space)
         Constraint::Length(1), // help text
     ];
 
@@ -55,7 +55,14 @@ pub fn render(frame: &mut Frame, form: &TaskFormData) {
         .split(inner);
 
     // Render each field
-    render_text_field(frame, "Title", &form.title, form.title_cursor, form.focused_field == 0, field_areas[0]);
+    render_text_field(
+        frame,
+        "Title",
+        &form.title,
+        form.title_cursor,
+        form.focused_field == 0,
+        field_areas[0],
+    );
     render_selector_field(
         frame,
         "Priority",
@@ -105,29 +112,32 @@ pub fn render(frame: &mut Frame, form: &TaskFormData) {
     );
 
     // Help text
-    let help = Line::from(vec![
-        Span::styled(
-            "Tab/S-Tab: navigate  Left/Right: select  Enter: save  Esc: cancel  Alt+Enter: newline",
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]);
+    let help = Line::from(vec![Span::styled(
+        "Tab/S-Tab: navigate  Left/Right: select  Enter: save  Esc: cancel  Alt+Enter: newline",
+        Style::default().fg(Color::DarkGray),
+    )]);
     let help_paragraph = Paragraph::new(help);
     frame.render_widget(help_paragraph, field_areas[6]);
 }
 
-fn render_text_field(frame: &mut Frame, label: &str, value: &str, cursor_pos: usize, focused: bool, area: Rect) {
+fn render_text_field(
+    frame: &mut Frame,
+    label: &str,
+    value: &str,
+    cursor_pos: usize,
+    focused: bool,
+    area: Rect,
+) {
     let style = if focused {
         Style::default().fg(Color::Yellow)
     } else {
         Style::default()
     };
 
-    let mut spans = vec![
-        Span::styled(
-            format!("{label}: "),
-            Style::default().add_modifier(Modifier::BOLD),
-        ),
-    ];
+    let mut spans = vec![Span::styled(
+        format!("{label}: "),
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
 
     if focused {
         spans.extend(build_cursor_spans(value, cursor_pos, style));
@@ -199,12 +209,10 @@ fn render_multiline_field(
         ..area
     };
 
-    let mut label_spans = vec![
-        Span::styled(
-            format!("{label}: "),
-            Style::default().add_modifier(Modifier::BOLD),
-        ),
-    ];
+    let mut label_spans = vec![Span::styled(
+        format!("{label}: "),
+        Style::default().add_modifier(Modifier::BOLD),
+    )];
     if focused {
         label_spans.push(Span::styled(
             format!("[{}/{}]", cursor_row + 1, total_lines),
@@ -226,10 +234,10 @@ fn render_multiline_field(
             let ranges = wrap_line_ranges(line_content, max_width);
 
             for (vi, &(start, end)) in ranges.iter().enumerate() {
-                let is_cursor_line = focused
-                    && logical_row == cursor_row
+                let is_cursor_line = (vi == ranges.len() - 1 || cursor_col < end)
                     && cursor_col >= start
-                    && (cursor_col < end || (vi == ranges.len() - 1 && cursor_col >= start));
+                    && logical_row == cursor_row
+                    && focused;
 
                 if is_cursor_line {
                     cursor_visual_row = visual_lines.len();
@@ -247,8 +255,7 @@ fn render_multiline_field(
     let visible_height = content_area.height as usize;
     let scroll_offset = cursor_visual_row.saturating_sub(visible_height.saturating_sub(1));
 
-    let paragraph = Paragraph::new(visual_lines)
-        .scroll((scroll_offset as u16, 0));
+    let paragraph = Paragraph::new(visual_lines).scroll((scroll_offset as u16, 0));
     frame.render_widget(paragraph, content_area);
 }
 
@@ -281,13 +288,7 @@ fn build_cursor_spans(text: &str, cursor_col: usize, base_style: Style) -> Vec<S
     spans
 }
 
-fn render_selector_field(
-    frame: &mut Frame,
-    label: &str,
-    value: &str,
-    focused: bool,
-    area: Rect,
-) {
+fn render_selector_field(frame: &mut Frame, label: &str, value: &str, focused: bool, area: Rect) {
     let style = if focused {
         Style::default().fg(Color::Yellow)
     } else {

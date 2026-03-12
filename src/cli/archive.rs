@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::error::AppError;
 use crate::model::filter::TaskFilter;
 use crate::model::task::{Priority, Task};

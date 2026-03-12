@@ -31,14 +31,12 @@ pub fn render(frame: &mut Frame, task: &Task, subtask_count: usize) {
 
     let mut lines: Vec<Line> = Vec::new();
 
-    lines.push(Line::from(vec![
-        Span::styled(
-            format!("Delete '{}'?", task.title),
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        format!("Delete '{}'?", task.title),
+        Style::default()
+            .fg(Color::White)
+            .add_modifier(Modifier::BOLD),
+    )]));
 
     if subtask_count > 0 {
         lines.push(Line::from(""));
@@ -50,15 +48,25 @@ pub fn render(frame: &mut Frame, task: &Task, subtask_count: usize) {
 
     lines.push(Line::from(""));
     lines.push(Line::from(vec![
-        Span::styled("y", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "y",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(": yes  "),
-        Span::styled("n", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "n",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
         Span::raw("/"),
-        Span::styled("Esc", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "Esc",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
         Span::raw(": cancel"),
     ]));
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, inner);
 }
-

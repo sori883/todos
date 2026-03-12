@@ -15,8 +15,7 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     // Guard: show message if terminal is too small
     if area.width < super::MIN_WIDTH || area.height < super::MIN_HEIGHT {
-        let msg = Paragraph::new("Terminal too small")
-            .style(Style::default().fg(Color::Red));
+        let msg = Paragraph::new("Terminal too small").style(Style::default().fg(Color::Red));
         frame.render_widget(msg, area);
         return;
     }
@@ -25,7 +24,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     let outer_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // project indicator
+            Constraint::Length(1), // project indicator
             Constraint::Min(1),    // main content
             Constraint::Length(1), // status bar
         ])
@@ -40,10 +39,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         // Split into list and detail
         let main_layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(50),
-                Constraint::Percentage(50),
-            ])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(content_area);
 
         render_task_list(frame, app, main_layout[0]);
@@ -64,26 +60,21 @@ fn render_project_indicator(frame: &mut Frame, app: &App, area: Rect) {
     let tab_count = app.project_tabs().len();
 
     let line = Line::from(vec![
-        Span::styled(
-            " \u{25C0} ",
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled(" \u{25C0} ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             current_name,
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            " \u{25B6} ",
-            Style::default().fg(Color::DarkGray),
-        ),
+        Span::styled(" \u{25B6} ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             format!("({}/{})", app.current_tab() + 1, tab_count),
             Style::default().fg(Color::DarkGray),
         ),
     ]);
 
-    let bar = Paragraph::new(line)
-        .style(Style::default().bg(Color::Black));
+    let bar = Paragraph::new(line).style(Style::default().bg(Color::Black));
     frame.render_widget(bar, area);
 }
 
@@ -111,10 +102,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
                 Status::Done => "[x] ",
                 Status::Cancelled => "[-] ",
             };
-            spans.push(Span::styled(
-                status_icon,
-                status_style(task.status),
-            ));
+            spans.push(Span::styled(status_icon, status_style(task.status)));
 
             // Priority badge
             let priority_str = match task.priority {
@@ -125,10 +113,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
                 Priority::Critical => "[crit] ",
             };
             if !priority_str.is_empty() {
-                spans.push(Span::styled(
-                    priority_str,
-                    priority_style(task.priority),
-                ));
+                spans.push(Span::styled(priority_str, priority_style(task.priority)));
             }
 
             // Title
@@ -143,10 +128,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
 
             // AI marker
             if task.created_by == CreatedBy::Ai {
-                spans.push(Span::styled(
-                    " [AI]",
-                    Style::default().fg(Color::Cyan),
-                ));
+                spans.push(Span::styled(" [AI]", Style::default().fg(Color::Cyan)));
             }
 
             let line = Line::from(spans);
@@ -167,8 +149,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
         completed_indicator,
     );
 
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title));
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
 
     frame.render_widget(list, area);
 }
@@ -177,9 +158,7 @@ fn render_detail_panel(frame: &mut Frame, app: &App, area: Rect) {
     if let Some(task) = app.selected_task() {
         task_detail::render(frame, task, app, area);
     } else {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title("Detail");
+        let block = Block::default().borders(Borders::ALL).title("Detail");
         let paragraph = Paragraph::new("No task selected")
             .block(block)
             .style(Style::default().fg(Color::DarkGray));
@@ -195,8 +174,7 @@ fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
         msg
     };
 
-    let bar = Paragraph::new(help)
-        .style(Style::default().fg(Color::White).bg(Color::DarkGray));
+    let bar = Paragraph::new(help).style(Style::default().fg(Color::White).bg(Color::DarkGray));
     frame.render_widget(bar, area);
 }
 
@@ -215,8 +193,6 @@ fn priority_style(priority: Priority) -> Style {
         Priority::Low => Style::default().fg(Color::Blue),
         Priority::Medium => Style::default().fg(Color::Yellow),
         Priority::High => Style::default().fg(Color::Red),
-        Priority::Critical => Style::default()
-            .fg(Color::Red)
-            .add_modifier(Modifier::BOLD),
+        Priority::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
     }
 }

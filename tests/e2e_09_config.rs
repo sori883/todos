@@ -24,7 +24,8 @@ fn config_mode_vi() {
     let dir = setup();
     todos_cmd(dir.path())
         .args(["config", "--mode", "vi"])
-        .assert().success();
+        .assert()
+        .success();
     let json = todos_json(dir.path(), &["config", "--show"]);
     assert_eq!(json["data"]["keybindings"]["mode"], "vi");
 }
@@ -34,7 +35,8 @@ fn config_icons_nerd() {
     let dir = setup();
     todos_cmd(dir.path())
         .args(["config", "--icons", "nerd"])
-        .assert().success();
+        .assert()
+        .success();
     let json = todos_json(dir.path(), &["config", "--show"]);
     assert_eq!(json["data"]["icons"]["style"], "nerd");
 }
@@ -43,10 +45,16 @@ fn config_icons_nerd() {
 fn config_reset_local() {
     let dir = setup();
     // ローカル設定を作成
-    todos_cmd(dir.path()).args(["config", "--mode", "vi"]).assert().success();
+    todos_cmd(dir.path())
+        .args(["config", "--mode", "vi"])
+        .assert()
+        .success();
     assert!(dir.path().join(".todos/settings.json").exists());
     // リセット
-    todos_cmd(dir.path()).args(["config", "--reset", "--yes"]).assert().success();
+    todos_cmd(dir.path())
+        .args(["config", "--reset", "--yes"])
+        .assert()
+        .success();
     assert!(!dir.path().join(".todos/settings.json").exists());
 }
 
@@ -56,7 +64,8 @@ fn config_reset_no_local() {
     // ローカル設定がない状態でリセット
     todos_cmd(dir.path())
         .args(["config", "--reset"])
-        .assert().success(); // エラーではなくメッセージ表示
+        .assert()
+        .success(); // エラーではなくメッセージ表示
 }
 
 #[test]
@@ -68,7 +77,8 @@ fn extra_labels_used_in_add() {
     // extra label でタスク追加可能
     todos_cmd(dir.path())
         .args(["add", "パフォーマンス改善", "-l", "perf"])
-        .assert().success();
+        .assert()
+        .success();
 }
 
 #[test]
@@ -79,5 +89,6 @@ fn extra_labels_invalid_still_fails() {
     // extra にもない label はエラー
     todos_cmd(dir.path())
         .args(["add", "テスト", "-l", "unknown"])
-        .assert().failure();
+        .assert()
+        .failure();
 }

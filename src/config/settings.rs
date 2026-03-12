@@ -177,15 +177,15 @@ impl Settings {
         if let Some(ref locale) = partial.locale {
             self.locale = locale.clone();
         }
-        if let Some(ref kb) = partial.keybindings {
-            if let Some(ref mode) = kb.mode {
-                self.keybindings.mode = mode.clone();
-            }
+        if let Some(ref kb) = partial.keybindings
+            && let Some(ref mode) = kb.mode
+        {
+            self.keybindings.mode = mode.clone();
         }
-        if let Some(ref icons) = partial.icons {
-            if let Some(ref style) = icons.style {
-                self.icons.style = style.clone();
-            }
+        if let Some(ref icons) = partial.icons
+            && let Some(ref style) = icons.style
+        {
+            self.icons.style = style.clone();
         }
         if !partial.extra_labels.is_empty() {
             for label in &partial.extra_labels {

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use assert_cmd::Command;
 use std::path::Path;
 use tempfile::TempDir;

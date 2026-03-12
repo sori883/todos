@@ -54,7 +54,11 @@ pub struct TaskService {
 
 impl TaskService {
     pub fn new(store: JsonStore, settings: Settings, archive_store: JsonStore) -> Self {
-        Self { store, settings, archive_store }
+        Self {
+            store,
+            settings,
+            archive_store,
+        }
     }
 
     /// Invalidate the store's in-memory cache so the next operation re-reads from disk.
@@ -186,10 +190,10 @@ impl TaskService {
 
         // Also add any orphan children (parent not in the filtered set)
         for task in &tasks {
-            if let Some(pid) = task.parent_id {
-                if !roots.iter().any(|r| r.id == pid) {
-                    result.push(task.clone());
-                }
+            if let Some(pid) = task.parent_id
+                && !roots.iter().any(|r| r.id == pid)
+            {
+                result.push(task.clone());
             }
         }
 
@@ -197,11 +201,7 @@ impl TaskService {
     }
 
     /// Search tasks by query string (case-insensitive substring match on title and content).
-    pub fn search_tasks(
-        &self,
-        query: &str,
-        filter: &TaskFilter,
-    ) -> Result<Vec<Task>, AppError> {
+    pub fn search_tasks(&self, query: &str, filter: &TaskFilter) -> Result<Vec<Task>, AppError> {
         let all_tasks = self.store.list(filter)?;
         let query_lower = query.to_lowercase();
 
@@ -252,9 +252,7 @@ impl TaskService {
 
         // Sanitize only changed values — preserves existing data that may exceed current limits
         let title = match title {
-            Some(ref t) if *t != task.title => {
-                Some(sanitize::sanitize_title(t, &self.settings)?)
-            }
+            Some(ref t) if *t != task.title => Some(sanitize::sanitize_title(t, &self.settings)?),
             _ => None,
         };
         let content = match content {
@@ -319,9 +317,7 @@ impl TaskService {
         prefix: &str,
         new_status_str: &str,
     ) -> Result<StatusChangeResult, AppError> {
-        let new_status: Status = new_status_str
-            .parse()
-            .map_err(AppError::InvalidInput)?;
+        let new_status: Status = new_status_str.parse().map_err(AppError::InvalidInput)?;
 
         let is_archiving = new_status == Status::Done || new_status == Status::Cancelled;
         let is_reverting = !is_archiving;
@@ -417,11 +413,7 @@ impl TaskService {
     }
 
     /// Search archived tasks by query string.
-    pub fn search_archive(
-        &self,
-        query: &str,
-        filter: &TaskFilter,
-    ) -> Result<Vec<Task>, AppError> {
+    pub fn search_archive(&self, query: &str, filter: &TaskFilter) -> Result<Vec<Task>, AppError> {
         let all_tasks = self.archive_store.list(filter)?;
         let query_lower = query.to_lowercase();
 
@@ -461,10 +453,7 @@ impl TaskService {
     }
 
     /// Execute a batch of actions with a single write at the end.
-    pub fn batch(
-        &self,
-        actions: Vec<serde_json::Value>,
-    ) -> Result<BatchResult, AppError> {
+    pub fn batch(&self, actions: Vec<serde_json::Value>) -> Result<BatchResult, AppError> {
         self.store.set_batch_mode(true);
         self.archive_store.set_batch_mode(true);
 
@@ -510,10 +499,7 @@ impl TaskService {
         })
     }
 
-    fn execute_batch_action(
-        &self,
-        action: &serde_json::Value,
-    ) -> Result<Task, AppError> {
+    fn execute_batch_action(&self, action: &serde_json::Value) -> Result<Task, AppError> {
         let action_type = action["action"]
             .as_str()
             .ok_or_else(|| AppError::InvalidInput("Missing 'action' field".to_string()))?;
@@ -558,35 +544,23 @@ impl TaskService {
                 let parent_id = action["parent_id"].as_str().map(|s| s.to_string());
 
                 self.add_task(
-                    title,
-                    content,
-                    priority,
-                    created_by,
-                    label,
-                    project,
-                    parent_id,
+                    title, content, priority, created_by, label, project, parent_id,
                 )
             }
             "status" => {
                 let id = action["id"]
                     .as_str()
-                    .ok_or_else(|| {
-                        AppError::InvalidInput("Missing 'id' for status".to_string())
-                    })?;
-                let status = action["status"]
-                    .as_str()
-                    .ok_or_else(|| {
-                        AppError::InvalidInput("Missing 'status' for status action".to_string())
-                    })?;
+                    .ok_or_else(|| AppError::InvalidInput("Missing 'id' for status".to_string()))?;
+                let status = action["status"].as_str().ok_or_else(|| {
+                    AppError::InvalidInput("Missing 'status' for status action".to_string())
+                })?;
                 let result = self.change_status(id, status)?;
                 Ok(result.task)
             }
             "edit" => {
                 let id = action["id"]
                     .as_str()
-                    .ok_or_else(|| {
-                        AppError::InvalidInput("Missing 'id' for edit".to_string())
-                    })?;
+                    .ok_or_else(|| AppError::InvalidInput("Missing 'id' for edit".to_string()))?;
 
                 let title = action["title"].as_str().map(|s| s.to_string());
                 let content = action["content"].as_str().map(|s| s.to_string());
@@ -607,9 +581,7 @@ impl TaskService {
             "delete" => {
                 let id = action["id"]
                     .as_str()
-                    .ok_or_else(|| {
-                        AppError::InvalidInput("Missing 'id' for delete".to_string())
-                    })?;
+                    .ok_or_else(|| AppError::InvalidInput("Missing 'id' for delete".to_string()))?;
                 let result = self.delete_task(id)?;
                 Ok(result.task)
             }

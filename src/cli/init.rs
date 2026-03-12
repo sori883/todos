@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use crate::cli::output::{print_error, print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_error, print_response};
 use crate::error::AppError;
-use crate::i18n::{get_message, Message};
+use crate::i18n::{Message, get_message};
 use crate::store::schema::TaskData;
 
 pub fn run(data_dir: &Path, force: bool, format: &str, locale: &str) -> Result<(), AppError> {

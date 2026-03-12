@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::cli::output::{print_response, CliResponse};
+use crate::cli::output::{CliResponse, print_response};
 use crate::config::settings::Settings;
 use crate::error::AppError;
 
@@ -15,22 +15,15 @@ pub struct ConfigParams {
     pub yes: bool,
 }
 
-pub fn run(
-    data_dir: &Path,
-    params: ConfigParams,
-    format: &str,
-) -> Result<(), AppError> {
+pub fn run(data_dir: &Path, params: ConfigParams, format: &str) -> Result<(), AppError> {
     if params.reset {
         let deleted = Settings::reset(data_dir)?;
         if deleted {
-            let response = CliResponse::<()>::message_only(
-                "Local settings reset".to_string(),
-            );
+            let response = CliResponse::<()>::message_only("Local settings reset".to_string());
             print_response(&response, format);
         } else {
-            let response = CliResponse::<()>::message_only(
-                "No local settings to reset".to_string(),
-            );
+            let response =
+                CliResponse::<()>::message_only("No local settings to reset".to_string());
             print_response(&response, format);
         }
         return Ok(());

@@ -9,7 +9,8 @@ fn delete_task_with_yes() {
     let id = t["data"]["task"]["id"].as_str().unwrap();
     todos_cmd(dir.path())
         .args(["delete", &id[..8], "--yes"])
-        .assert().success();
+        .assert()
+        .success();
     let list = todos_json(dir.path(), &["list", "--all"]);
     assert_eq!(list["data"]["count"], 0);
 }
@@ -29,7 +30,8 @@ fn delete_not_found() {
     let dir = setup();
     todos_cmd(dir.path())
         .args(["delete", "0000", "--yes"])
-        .assert().failure();
+        .assert()
+        .failure();
 }
 
 #[test]
@@ -37,9 +39,18 @@ fn delete_parent_cascades_to_children() {
     let dir = setup();
     let parent = todos_json(dir.path(), &["add", "親"]);
     let pid = parent["data"]["task"]["id"].as_str().unwrap();
-    todos_cmd(dir.path()).args(["add", "子1", "--parent", &pid[..8]]).assert().success();
-    todos_cmd(dir.path()).args(["add", "子2", "--parent", &pid[..8]]).assert().success();
-    todos_cmd(dir.path()).args(["add", "他のタスク"]).assert().success();
+    todos_cmd(dir.path())
+        .args(["add", "子1", "--parent", &pid[..8]])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "子2", "--parent", &pid[..8]])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "他のタスク"])
+        .assert()
+        .success();
     // 親を削除
     let result = todos_json_yes(dir.path(), &["delete", &pid[..8]]);
     assert_eq!(result["success"], true);
@@ -54,8 +65,14 @@ fn delete_parent_json_shows_deleted_count() {
     let dir = setup();
     let parent = todos_json(dir.path(), &["add", "親"]);
     let pid = parent["data"]["task"]["id"].as_str().unwrap();
-    todos_cmd(dir.path()).args(["add", "子1", "--parent", &pid[..8]]).assert().success();
-    todos_cmd(dir.path()).args(["add", "子2", "--parent", &pid[..8]]).assert().success();
+    todos_cmd(dir.path())
+        .args(["add", "子1", "--parent", &pid[..8]])
+        .assert()
+        .success();
+    todos_cmd(dir.path())
+        .args(["add", "子2", "--parent", &pid[..8]])
+        .assert()
+        .success();
     let result = todos_json_yes(dir.path(), &["delete", &pid[..8]]);
     assert_eq!(result["data"]["deleted_subtasks"], 2);
 }
@@ -69,7 +86,8 @@ fn delete_child_only() {
     let cid = child["data"]["task"]["id"].as_str().unwrap();
     todos_cmd(dir.path())
         .args(["delete", &cid[..8], "--yes"])
-        .assert().success();
+        .assert()
+        .success();
     // 親はまだ存在
     let show = todos_json(dir.path(), &["show", &pid[..8]]);
     assert_eq!(show["data"]["task"]["title"], "親");
@@ -83,5 +101,6 @@ fn delete_alias_rm() {
     let id = t["data"]["task"]["id"].as_str().unwrap();
     todos_cmd(dir.path())
         .args(["rm", &id[..8], "--yes"])
-        .assert().success();
+        .assert()
+        .success();
 }
