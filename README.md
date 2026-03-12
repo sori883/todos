@@ -92,6 +92,16 @@ todos status <ID_PREFIX> done # 自動アーカイブ
 | `c` | 完了タスクの表示切替 |
 | `q` | 終了 |
 
+## 併用おすすめClaude Code設定
+
+`.claude/` 配下に、todos を使った開発ワークフローのためのルールとスキルを同梱しています。
+
+| 種類 | 名前 | 内容 |
+|------|------|------|
+| ルール | `dev-workflow.md` | todos CLI でタスク管理しながら開発するワークフロー |
+| スキル | `/task-management` | todos CLI のコマンドテンプレートとフェーズ実行手順 |
+| スキル | `/task-verification` | todos のタスク仕様と実装の突合検証 |
+
 ## ライセンス
 
 MIT
