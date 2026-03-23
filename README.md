@@ -7,7 +7,7 @@
 - **CLI / TUI** — コマンドラインとターミナルUI（ratatui）の2つのインターフェース
 - **親子タスク** — 2階層のツリー構造でサブタスク管理
 - **プロジェクト・ラベル** — プロジェクト別のグループ化、ラベルによる分類
-- **自動アーカイブ** — Done/Cancelled タスクは自動で archive.json に移動
+- **自動アーカイブ** — Done/Cancelled タスクは自動でアーカイブに移動
 - **JSON 出力** — `--format json` で全コマンドが機械可読な出力に対応
 - **一括操作** — `batch` コマンドで stdin から JSON による複数操作を一度に実行
 - **i18n** — 日本語/英語対応
@@ -54,8 +54,7 @@ todos status <ID_PREFIX> done # 自動アーカイブ
 
 | ファイル | 内容 |
 |---------|------|
-| `.todos/tasks.json` | アクティブなタスク |
-| `.todos/archive.json` | Done/Cancelled タスク |
+| `.todos/todos.db` | タスクデータ（SQLite） |
 | `.todos/settings.json` | ユーザー設定 |
 
 ## CLIコマンド
