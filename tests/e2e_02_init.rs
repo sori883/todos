@@ -7,17 +7,25 @@ use tempfile::TempDir;
 fn init_creates_data_directory() {
     let dir = TempDir::new().unwrap();
     todos_cmd(dir.path()).args(["init"]).assert().success();
-    assert!(dir.path().join(".todos/tasks.json").exists());
+    assert!(dir.path().join(".todos/todos.db").exists());
 }
 
 #[test]
-fn init_creates_valid_json() {
+fn init_creates_valid_database() {
     let dir = TempDir::new().unwrap();
     todos_cmd(dir.path()).args(["init"]).assert().success();
-    let content = std::fs::read_to_string(dir.path().join(".todos/tasks.json")).unwrap();
-    let data: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert_eq!(data["version"], 2);
-    assert_eq!(data["tasks"], serde_json::json!([]));
+    let db_path = dir.path().join(".todos/todos.db");
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    // Verify tables exist
+    let tables: Vec<String> = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert!(tables.contains(&"tasks".to_string()));
+    assert!(tables.contains(&"archive".to_string()));
 }
 
 #[test]

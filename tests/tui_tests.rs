@@ -12,14 +12,14 @@ use helpers::{setup, todos_cmd, todos_json};
 use todos::config::settings::Settings;
 use todos::model::task::Status;
 use todos::service::task_service::TaskService;
-use todos::store::json_store::JsonStore;
+use todos::store::sqlite_store::SqliteStore;
 use todos::tui::app::{App, AppState, FormMode};
 
 fn create_test_service(path: &Path) -> TaskService {
-    let tasks_path = path.join(".todos/tasks.json");
-    let archive_path = path.join(".todos/archive.json");
-    let store = JsonStore::new(tasks_path);
-    let archive_store = JsonStore::new(archive_path);
+    let db_path = path.join(".todos/todos.db");
+    let conn = SqliteStore::open(&db_path).unwrap();
+    let store = SqliteStore::new(conn.clone(), "tasks").unwrap();
+    let archive_store = SqliteStore::new(conn, "archive").unwrap();
     let settings = Settings::load(&path.join(".todos")).unwrap_or_default();
     TaskService::new(store, settings, archive_store)
 }
@@ -27,15 +27,15 @@ fn create_test_service(path: &Path) -> TaskService {
 fn create_test_app() -> (App, TempDir) {
     let dir = setup();
     let service = create_test_service(dir.path());
-    let tasks_path = dir.path().join(".todos/tasks.json");
-    let app = App::new(service, tasks_path);
+    let db_path = dir.path().join(".todos/todos.db");
+    let app = App::new(service, db_path);
     (app, dir)
 }
 
 fn create_test_app_with_data(path: &Path) -> App {
     let service = create_test_service(path);
-    let tasks_path = path.join(".todos/tasks.json");
-    App::new(service, tasks_path)
+    let db_path = path.join(".todos/todos.db");
+    App::new(service, db_path)
 }
 
 fn render_app(app: &App, width: u16, height: u16) -> Buffer {
@@ -80,8 +80,8 @@ fn key(c: char) -> KeyEvent {
 fn app_initializes_without_panic() {
     let dir = setup();
     let service = create_test_service(dir.path());
-    let tasks_path = dir.path().join(".todos/tasks.json");
-    let app = App::new(service, tasks_path);
+    let db_path = dir.path().join(".todos/todos.db");
+    let app = App::new(service, db_path);
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|f| app.render(f)).unwrap();
@@ -103,8 +103,8 @@ fn app_displays_task_count() {
         .assert()
         .success();
     let service = create_test_service(dir.path());
-    let tasks_path = dir.path().join(".todos/tasks.json");
-    let app = App::new(service, tasks_path);
+    let db_path = dir.path().join(".todos/todos.db");
+    let app = App::new(service, db_path);
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|f| app.render(f)).unwrap();

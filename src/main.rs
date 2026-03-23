@@ -4,11 +4,12 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use todos::cli;
 use todos::config::paths;
+use todos::config::paths::db_path;
 use todos::config::settings::Settings;
 use todos::model::filter::TaskFilter;
 use todos::model::task::{CreatedBy, Priority, Status};
 use todos::service::task_service::TaskService;
-use todos::store::json_store::JsonStore;
+use todos::store::sqlite_store::SqliteStore;
 use todos::tui;
 
 const COMMANDS_REFERENCE: &str = "\
@@ -429,13 +430,13 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
     match cli_args.command {
         None => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path.clone());
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
-            tui::run_tui(service, tasks_path)?;
+            tui::run_tui(service, db)?;
             Ok(())
         }
         Some(Commands::Init { force }) => {
@@ -454,10 +455,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             parent,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
             let service = TaskService::new(store, settings, archive_store);
@@ -477,10 +478,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Show { id }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 
@@ -501,10 +502,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             flat,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 
@@ -564,10 +565,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             parent,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
             let service = TaskService::new(store, settings, archive_store);
@@ -587,10 +588,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Status { id, status }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
             let service = TaskService::new(store, settings, archive_store);
@@ -600,10 +601,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Delete { id }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let locale = settings.locale.clone();
             let service = TaskService::new(store, settings, archive_store);
@@ -620,10 +621,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             status,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 
@@ -668,10 +669,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             status,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 
@@ -726,10 +727,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
             limit,
         }) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 
@@ -757,10 +758,10 @@ fn run(cli_args: Cli, format: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Batch) => {
             let data_dir = paths::resolve_data_dir(cli_args.data_dir.as_deref());
-            let tasks_path = paths::tasks_json_path(&data_dir);
-            let archive_path = paths::archive_json_path(&data_dir);
-            let store = JsonStore::new(tasks_path);
-            let archive_store = JsonStore::new(archive_path);
+            let db = db_path(&data_dir);
+            let conn = SqliteStore::open(&db)?;
+            let store = SqliteStore::new(conn.clone(), "tasks")?;
+            let archive_store = SqliteStore::new(conn, "archive")?;
             let settings = Settings::load(&data_dir)?;
             let service = TaskService::new(store, settings, archive_store);
 

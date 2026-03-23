@@ -100,3 +100,30 @@ impl std::fmt::Display for CreatedBy {
         }
     }
 }
+
+impl std::str::FromStr for CreatedBy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "human" => Ok(Self::Human),
+            "ai" => Ok(Self::Ai),
+            _ => Err(format!("Invalid created_by: '{s}'")),
+        }
+    }
+}
+
+impl std::str::FromStr for Priority {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "none" => Ok(Self::None),
+            "low" => Ok(Self::Low),
+            "medium" => Ok(Self::Medium),
+            "high" => Ok(Self::High),
+            "critical" => Ok(Self::Critical),
+            _ => Err(format!("Invalid priority: '{s}'")),
+        }
+    }
+}

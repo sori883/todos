@@ -8,8 +8,8 @@ use crate::model::filter::TaskFilter;
 use crate::model::stats::Stats;
 use crate::model::task::{CreatedBy, Priority, Status, Task, TaskId};
 use crate::service::sanitize;
-use crate::store::json_store::JsonStore;
 use crate::store::repository::TaskRepository;
+use crate::store::sqlite_store::SqliteStore;
 
 #[derive(Debug, Serialize)]
 pub struct StatusChangeResult {
@@ -47,24 +47,18 @@ pub struct BatchResult {
 }
 
 pub struct TaskService {
-    store: JsonStore,
+    store: SqliteStore,
     settings: Settings,
-    archive_store: JsonStore,
+    archive_store: SqliteStore,
 }
 
 impl TaskService {
-    pub fn new(store: JsonStore, settings: Settings, archive_store: JsonStore) -> Self {
+    pub fn new(store: SqliteStore, settings: Settings, archive_store: SqliteStore) -> Self {
         Self {
             store,
             settings,
             archive_store,
         }
-    }
-
-    /// Invalidate the store's in-memory cache so the next operation re-reads from disk.
-    pub fn invalidate_cache(&self) {
-        self.store.invalidate_cache();
-        self.archive_store.invalidate_cache();
     }
 
     /// Add a new task with validation.
@@ -349,8 +343,8 @@ impl TaskService {
         let mut archived_subtasks = 0;
 
         if is_archiving {
-            // Archive: update status in store, then move to archive
-            self.store.update(task.clone())?;
+            // Use transaction for atomic archive operation
+            self.store.set_batch_mode(true);
 
             // Archive the task: create in archive, then delete from store
             self.archive_store.create(task.clone())?;
@@ -364,7 +358,12 @@ impl TaskService {
             }
             archived_subtasks = children.len();
             archived = true;
+
+            self.store.flush()?;
         } else if was_archived {
+            // Use transaction for atomic restore operation
+            self.store.set_batch_mode(true);
+
             // Revert from archive: restore to store, then delete from archive
             task.status = new_status;
             self.store.create(task.clone())?;
@@ -377,6 +376,8 @@ impl TaskService {
                 self.archive_store.delete(child.id)?;
                 archived_subtasks += 1;
             }
+
+            self.store.flush()?;
         } else {
             // Normal status change (not archiving, not reverting from archive)
             self.store.update(task.clone())?;

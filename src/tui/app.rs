@@ -73,7 +73,7 @@ pub struct KeyResult {
 
 pub struct App {
     service: TaskService,
-    tasks_path: PathBuf,
+    db_path: PathBuf,
     state: AppState,
     tasks: Vec<Task>,
     selected_index: usize,
@@ -88,10 +88,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(service: TaskService, tasks_path: PathBuf) -> Self {
+    pub fn new(service: TaskService, db_path: PathBuf) -> Self {
         let mut app = Self {
             service,
-            tasks_path,
+            db_path,
             state: AppState::TaskList,
             tasks: Vec::new(),
             selected_index: 0,
@@ -189,12 +189,11 @@ impl App {
             self.status_message_time = None;
         }
 
-        // Check mtime
-        if let Ok(metadata) = std::fs::metadata(&self.tasks_path)
-            && let Ok(mtime) = metadata.modified()
+        // Check mtime (DB file + WAL file, since WAL mode writes to the -wal file)
+        let current_mtime = self.latest_db_mtime();
+        if let Some(mtime) = current_mtime
             && self.last_mtime.is_some_and(|last| mtime != last)
         {
-            self.service_invalidate_cache();
             self.reload_tasks();
             self.last_mtime = Some(mtime);
         }
@@ -245,15 +244,22 @@ impl App {
     // --- Internal helpers ---
 
     fn update_mtime(&mut self) {
-        if let Ok(metadata) = std::fs::metadata(&self.tasks_path)
-            && let Ok(mtime) = metadata.modified()
-        {
-            self.last_mtime = Some(mtime);
-        }
+        self.last_mtime = self.latest_db_mtime();
     }
 
-    fn service_invalidate_cache(&self) {
-        self.service.invalidate_cache();
+    /// Return the latest mtime across the DB file and its WAL file.
+    fn latest_db_mtime(&self) -> Option<SystemTime> {
+        let db_mtime = std::fs::metadata(&self.db_path)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        let wal_path = self.db_path.with_extension("db-wal");
+        let wal_mtime = std::fs::metadata(&wal_path)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        match (db_mtime, wal_mtime) {
+            (Some(d), Some(w)) => Some(d.max(w)),
+            (d, w) => d.or(w),
+        }
     }
 
     fn update_project_tabs(&mut self) {
@@ -404,7 +410,7 @@ impl App {
                 self.delete_target = None;
                 self.state = AppState::TaskList;
                 self.update_mtime();
-                self.service_invalidate_cache();
+
                 self.reload_tasks();
             }
             KeyCode::Char('n') | KeyCode::Esc => {
@@ -441,7 +447,7 @@ impl App {
                 }
             }
             self.update_mtime();
-            self.service_invalidate_cache();
+
             self.reload_tasks();
         }
     }
@@ -469,7 +475,7 @@ impl App {
                 }
             }
             self.update_mtime();
-            self.service_invalidate_cache();
+
             self.reload_tasks();
         }
     }

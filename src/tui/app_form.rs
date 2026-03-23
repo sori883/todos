@@ -283,7 +283,6 @@ impl App {
                 self.set_status_message(msg);
                 self.state = AppState::TaskList;
                 self.update_mtime();
-                self.service_invalidate_cache();
                 self.reload_tasks();
             }
             Err(msg) => {

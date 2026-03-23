@@ -32,14 +32,8 @@ pub enum AppError {
     #[error("Config error: {0}")]
     Config(String),
 
-    #[error("File lock error: {0}")]
-    FileLock(String),
-
-    #[error("Schema version {0} is newer than supported version {1}")]
-    SchemaVersionTooNew(u32, u32),
-
-    #[error("Schema migration failed: {0}")]
-    SchemaMigration(String),
+    #[error("Database error: {0}")]
+    Database(#[from] rusqlite::Error),
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),

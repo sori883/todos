@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "tasks": [
+    {
+      "id": "994c835d-edf2-4647-8bda-9e349a61973c",
+      "title": "設計・計画",
+      "status": "done",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:33.844673Z",
+      "updated_at": "2026-03-23T11:53:46.435598Z",
+      "completed_at": "2026-03-23T11:53:46.435598Z"
+    },
+    {
+      "id": "395efa9f-988e-4ccb-8ec9-fa701606d0c8",
+      "title": "テスト設計",
+      "status": "done",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:34.136633Z",
+      "updated_at": "2026-03-23T11:54:43.610730Z",
+      "completed_at": "2026-03-23T11:54:43.610732Z"
+    }
+  ]
+}

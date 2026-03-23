@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "tasks": [
+    {
+      "id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "title": "JSON→SQLite ストレージ移行",
+      "status": "todo",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "created_at": "2026-03-23T11:53:07.644938Z",
+      "updated_at": "2026-03-23T11:53:07.644938Z"
+    },
+    {
+      "id": "1d83a8e3-7107-4962-baf4-b7bbb2fbcdc6",
+      "title": "実装: SqliteStore + エラー型",
+      "status": "in_progress",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:34.425263Z",
+      "updated_at": "2026-03-23T11:54:43.928877Z"
+    },
+    {
+      "id": "4882590f-c958-422d-928f-2b1a2b75adb7",
+      "title": "実装: paths/init/main/service/tui 更新",
+      "status": "todo",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:34.714127Z",
+      "updated_at": "2026-03-23T11:53:34.714127Z"
+    },
+    {
+      "id": "cbde4c61-d7f3-42ec-b8ad-cb7e818f6d74",
+      "title": "実装: JSON関連コード削除",
+      "status": "todo",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:34.992647Z",
+      "updated_at": "2026-03-23T11:53:34.992647Z"
+    },
+    {
+      "id": "f8933a42-a23a-4112-9960-96d0355f0add",
+      "title": "テスト実装・実行",
+      "status": "todo",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:35.272877Z",
+      "updated_at": "2026-03-23T11:53:35.272877Z"
+    },
+    {
+      "id": "2196e423-8225-4924-93f2-265fac30a8a9",
+      "title": "検証・レビュー",
+      "status": "todo",
+      "priority": "none",
+      "created_by": "ai",
+      "label": "refactor",
+      "project": "sqlite-migration",
+      "parent_id": "0954f52b-0f4f-4e12-bc4f-d92d4e861afb",
+      "created_at": "2026-03-23T11:53:35.553838Z",
+      "updated_at": "2026-03-23T11:53:35.553838Z"
+    }
+  ]
+}

@@ -1,3 +1,2 @@
-pub mod json_store;
 pub mod repository;
-pub mod schema;
+pub mod sqlite_store;
