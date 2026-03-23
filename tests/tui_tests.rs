@@ -38,7 +38,7 @@ fn create_test_app_with_data(path: &Path) -> App {
     App::new(service, db_path)
 }
 
-fn render_app(app: &App, width: u16, height: u16) -> Buffer {
+fn render_app(app: &mut App, width: u16, height: u16) -> Buffer {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|f| app.render(f)).unwrap();
@@ -81,7 +81,7 @@ fn app_initializes_without_panic() {
     let dir = setup();
     let service = create_test_service(dir.path());
     let db_path = dir.path().join(".todos/todos.db");
-    let app = App::new(service, db_path);
+    let mut app = App::new(service, db_path);
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|f| app.render(f)).unwrap();
@@ -104,7 +104,7 @@ fn app_displays_task_count() {
         .success();
     let service = create_test_service(dir.path());
     let db_path = dir.path().join(".todos/todos.db");
-    let app = App::new(service, db_path);
+    let mut app = App::new(service, db_path);
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|f| app.render(f)).unwrap();
@@ -126,8 +126,8 @@ fn list_shows_tasks_with_tree() {
         .args(["add", "子タスク", "--parent", &pid[..8]])
         .assert()
         .success();
-    let app = create_test_app_with_data(dir.path());
-    let buffer = render_app(&app, 80, 24);
+    let mut app = create_test_app_with_data(dir.path());
+    let buffer = render_app(&mut app, 80, 24);
     let content = buffer_to_string(&buffer);
     assert!(content.contains("親タスク"));
     assert!(content.contains("子タスク"));
@@ -159,8 +159,8 @@ fn detail_panel_shows_selected_task() {
         .args(["add", "テスト", "-d", "詳細説明", "-p", "high"])
         .assert()
         .success();
-    let app = create_test_app_with_data(dir.path());
-    let buffer = render_app(&app, 120, 30);
+    let mut app = create_test_app_with_data(dir.path());
+    let buffer = render_app(&mut app, 120, 30);
     let content = buffer_to_string(&buffer);
     assert!(content.contains("詳細説明"));
     assert!(content.contains("high"));
@@ -214,8 +214,8 @@ fn parent_task_shows_subtask_count_in_detail() {
         .args(["add", "子2", "--parent", &pid[..8]])
         .assert()
         .success();
-    let app = create_test_app_with_data(dir.path());
-    let buffer = render_app(&app, 120, 30);
+    let mut app = create_test_app_with_data(dir.path());
+    let buffer = render_app(&mut app, 120, 30);
     let content = buffer_to_string(&buffer);
     assert!(content.contains("Subtasks") && content.contains("2"));
 }
@@ -364,7 +364,7 @@ fn repro_create_subtask_via_form() {
 
 #[test]
 fn repro_small_terminal_no_crash() {
-    let (app, _dir) = create_test_app();
+    let (mut app, _dir) = create_test_app();
     for (w, h) in [(10, 5), (5, 3), (1, 1), (3, 1), (80, 1), (1, 24)] {
         let backend = TestBackend::new(w, h);
         let mut terminal = Terminal::new(backend).unwrap();
@@ -437,7 +437,7 @@ fn project_indicator_shows_current_project() {
         .success();
     let mut app = create_test_app_with_data(dir.path());
     // Initial: "All" project
-    let buffer = render_app(&app, 80, 24);
+    let buffer = render_app(&mut app, 80, 24);
     let content = buffer_to_string(&buffer);
     assert!(
         content.contains("All"),
@@ -446,7 +446,7 @@ fn project_indicator_shows_current_project() {
 
     // Switch to next project
     app.handle_key(key('l'));
-    let buffer = render_app(&app, 80, 24);
+    let buffer = render_app(&mut app, 80, 24);
     let content = buffer_to_string(&buffer);
     assert!(
         content.contains("alpha"),
@@ -522,7 +522,7 @@ fn form_parent_field_renders_in_form() {
         .success();
     let mut app = create_test_app_with_data(dir.path());
     app.handle_key(key('n'));
-    let buffer = render_app(&app, 80, 24);
+    let buffer = render_app(&mut app, 80, 24);
     let content = buffer_to_string(&buffer);
     assert!(
         content.contains("Parent"),
@@ -544,7 +544,7 @@ fn subtask_form_parent_locked() {
     assert_eq!(form.mode, FormMode::Subtask);
     // Parent should be pre-selected (index > 0)
     assert!(form.parent_index > 0);
-    let buffer = render_app(&app, 80, 24);
+    let buffer = render_app(&mut app, 80, 24);
     let content = buffer_to_string(&buffer);
     assert!(
         content.contains("Parent (locked)"),
@@ -573,8 +573,8 @@ fn form_save_error_preserves_form_data() {
 
 #[test]
 fn tiny_terminal_shows_too_small_message() {
-    let (app, _dir) = create_test_app();
-    let buffer = render_app(&app, 19, 4);
+    let (mut app, _dir) = create_test_app();
+    let buffer = render_app(&mut app, 19, 4);
     let content = buffer_to_string(&buffer);
     assert!(content.contains("Terminal too small"));
 }
@@ -813,9 +813,9 @@ fn content_multiline_display_in_detail() {
         .args(["add", "Detail", "-d", "first\nsecond\nthird"])
         .assert()
         .success();
-    let app = create_test_app_with_data(dir.path());
+    let mut app = create_test_app_with_data(dir.path());
     // Render with wide terminal to get detail panel
-    let buffer = render_app(&app, 120, 30);
+    let buffer = render_app(&mut app, 120, 30);
     let content = buffer_to_string(&buffer);
     // The detail panel should show each line separately
     // Content section shows lines directly (no "Content:" label in new design)

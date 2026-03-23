@@ -3,6 +3,7 @@ use std::time::{Instant, SystemTime};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
+use ratatui::widgets::ListState;
 
 use crate::model::filter::TaskFilter;
 use crate::model::task::{Priority, Status, Task, TaskId};
@@ -85,6 +86,7 @@ pub struct App {
     last_mtime: Option<SystemTime>,
     form: Option<TaskFormData>,
     delete_target: Option<Task>,
+    list_state: ListState,
 }
 
 impl App {
@@ -103,6 +105,7 @@ impl App {
             last_mtime: None,
             form: None,
             delete_target: None,
+            list_state: ListState::default().with_selected(Some(0)),
         };
         app.update_mtime();
         app.reload_tasks();
@@ -139,8 +142,12 @@ impl App {
         self.form.as_ref().and_then(|f| f.selected_parent_id())
     }
 
+    pub fn list_state_mut(&mut self) -> &mut ListState {
+        &mut self.list_state
+    }
+
     /// Render the current state to the given frame.
-    pub fn render(&self, frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame) {
         match self.state {
             AppState::TaskList => {
                 pages::task_list::render(frame, self);
@@ -239,6 +246,15 @@ impl App {
 
         // Update project tabs
         self.update_project_tabs();
+        self.sync_list_state();
+    }
+
+    fn sync_list_state(&mut self) {
+        if self.tasks.is_empty() {
+            self.list_state.select(None);
+        } else {
+            self.list_state.select(Some(self.selected_index));
+        }
     }
 
     // --- Internal helpers ---
@@ -329,11 +345,13 @@ impl App {
             KeyCode::Char('j') | KeyCode::Down => {
                 if !self.tasks.is_empty() && self.selected_index < self.tasks.len() - 1 {
                     self.selected_index += 1;
+                    self.sync_list_state();
                 }
             }
             KeyCode::Char('k') | KeyCode::Up => {
                 if self.selected_index > 0 {
                     self.selected_index -= 1;
+                    self.sync_list_state();
                 }
             }
             KeyCode::Char('h') | KeyCode::Left => {

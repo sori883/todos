@@ -10,7 +10,7 @@ use crate::tui::app::App;
 use super::task_detail;
 
 /// Render the task list page.
-pub fn render(frame: &mut Frame, app: &App) {
+pub fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
 
     // Guard: show message if terminal is too small
@@ -78,14 +78,12 @@ fn render_project_indicator(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(bar, area);
 }
 
-fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
+fn render_task_list(frame: &mut Frame, app: &mut App, area: Rect) {
     let tasks = app.tasks();
 
     let items: Vec<ListItem> = tasks
         .iter()
-        .enumerate()
-        .map(|(i, task)| {
-            let is_selected = i == app.selected_index();
+        .map(|task| {
             let is_subtask = task.parent_id.is_some();
 
             let mut spans: Vec<Span> = Vec::new();
@@ -117,9 +115,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
             }
 
             // Title
-            let title_style = if is_selected {
-                Style::default().add_modifier(Modifier::BOLD)
-            } else if task.status == Status::Done || task.status == Status::Cancelled {
+            let title_style = if task.status == Status::Done || task.status == Status::Cancelled {
                 Style::default().fg(Color::DarkGray)
             } else {
                 Style::default()
@@ -131,14 +127,7 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
                 spans.push(Span::styled(" [AI]", Style::default().fg(Color::Cyan)));
             }
 
-            let line = Line::from(spans);
-            let style = if is_selected {
-                Style::default().bg(Color::DarkGray)
-            } else {
-                Style::default()
-            };
-
-            ListItem::new(line).style(style)
+            ListItem::new(Line::from(spans))
         })
         .collect();
 
@@ -149,9 +138,15 @@ fn render_task_list(frame: &mut Frame, app: &App, area: Rect) {
         completed_indicator,
     );
 
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        );
 
-    frame.render_widget(list, area);
+    frame.render_stateful_widget(list, area, app.list_state_mut());
 }
 
 fn render_detail_panel(frame: &mut Frame, app: &App, area: Rect) {
