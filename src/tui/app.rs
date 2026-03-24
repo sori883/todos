@@ -295,6 +295,16 @@ impl App {
                 }
             }
         }
+        // アーカイブ内のプロジェクトも含める
+        if let Ok(archived_tasks) = self.service.list_archive(&all_filter) {
+            for task in &archived_tasks {
+                if let Some(ref proj) = task.project
+                    && !projects.contains(proj)
+                {
+                    projects.push(proj.clone());
+                }
+            }
+        }
         projects.sort();
 
         let mut tabs: Vec<Option<String>> = vec![None]; // "All" tab

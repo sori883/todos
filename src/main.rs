@@ -36,6 +36,7 @@ const COMMANDS_REFERENCE: &str = "\
 
   \x1b[1mstatus\x1b[0m <ID> <STATUS>
       ステータス変更。status: todo|in_progress|done|cancelled
+      アーカイブ済みタスクも指定可能（done/cancelled 以外に変更すると復元）
 
   \x1b[1mdelete\x1b[0m (rm) <ID>
       タスクを削除
@@ -219,7 +220,7 @@ enum Commands {
         #[arg(long)]
         parent: Option<String>,
     },
-    /// タスクのステータスを変更
+    /// タスクのステータスを変更（アーカイブ済みタスクも指定可能。done/cancelled 以外に変更すると復元される）
     Status {
         /// タスク ID（前方一致）
         id: String,
